@@ -12,11 +12,34 @@ namespace vkBasalt
 {
     class Effect;
 
+    enum class ParamType
+    {
+        Float,
+        Int,
+        Bool
+    };
+
+    struct EffectParameter
+    {
+        std::string effectName;   // Which effect this belongs to (e.g., "cas", "Clarity.fx")
+        std::string name;         // Parameter name (e.g., "casSharpness")
+        std::string label;        // Display label (from ui_label or name)
+        ParamType type = ParamType::Float;
+        float valueFloat = 0.0f;
+        int valueInt = 0;
+        bool valueBool = false;
+        float minFloat = 0.0f;
+        float maxFloat = 1.0f;
+        int minInt = 0;
+        int maxInt = 100;
+    };
+
     struct OverlayState
     {
         std::vector<std::string> effectNames;
         std::string configPath;
         bool effectsEnabled = true;
+        std::vector<EffectParameter> parameters;
     };
 
     class ImGuiOverlay

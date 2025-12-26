@@ -1000,6 +1000,81 @@ namespace vkBasalt
         Logger::debug("after the second pipeline barrier");
     }
 
+    std::vector<EffectParameter> ReshadeEffect::getParameters() const
+    {
+        std::vector<EffectParameter> params;
+
+        for (const auto& spec : module.spec_constants)
+        {
+            // Skip uniforms with "source" annotation (auto-updated like frametime)
+            auto sourceIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
+                [](const auto& a) { return a.name == "source"; });
+            if (sourceIt != spec.annotations.end())
+                continue;
+
+            // Skip if no name (can't be configured)
+            if (spec.name.empty())
+                continue;
+
+            EffectParameter p;
+            p.effectName = effectName;
+            p.name = spec.name;
+
+            // Get ui_label or use name
+            auto labelIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
+                [](const auto& a) { return a.name == "ui_label"; });
+            p.label = (labelIt != spec.annotations.end()) ? labelIt->value.string_data : spec.name;
+
+            // Check if value is configured, otherwise use default
+            std::string configVal = pConfig->getOption<std::string>(spec.name);
+            bool hasConfig = !configVal.empty();
+
+            // Determine type and get value/range
+            if (spec.type.is_floating_point())
+            {
+                p.type = ParamType::Float;
+                p.valueFloat = hasConfig ? pConfig->getOption<float>(spec.name) : spec.initializer_value.as_float[0];
+
+                auto minIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
+                    [](const auto& a) { return a.name == "ui_min"; });
+                auto maxIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
+                    [](const auto& a) { return a.name == "ui_max"; });
+
+                if (minIt != spec.annotations.end())
+                    p.minFloat = minIt->type.is_floating_point() ? minIt->value.as_float[0] : (float)minIt->value.as_int[0];
+                if (maxIt != spec.annotations.end())
+                    p.maxFloat = maxIt->type.is_floating_point() ? maxIt->value.as_float[0] : (float)maxIt->value.as_int[0];
+            }
+            else if (spec.type.is_integral())
+            {
+                if (spec.type.is_boolean())
+                {
+                    p.type = ParamType::Bool;
+                    p.valueBool = hasConfig ? pConfig->getOption<bool>(spec.name) : (spec.initializer_value.as_uint[0] != 0);
+                }
+                else
+                {
+                    p.type = ParamType::Int;
+                    p.valueInt = hasConfig ? pConfig->getOption<int32_t>(spec.name) : spec.initializer_value.as_int[0];
+
+                    auto minIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
+                        [](const auto& a) { return a.name == "ui_min"; });
+                    auto maxIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
+                        [](const auto& a) { return a.name == "ui_max"; });
+
+                    if (minIt != spec.annotations.end())
+                        p.minInt = minIt->type.is_integral() ? minIt->value.as_int[0] : (int)minIt->value.as_float[0];
+                    if (maxIt != spec.annotations.end())
+                        p.maxInt = maxIt->type.is_integral() ? maxIt->value.as_int[0] : (int)maxIt->value.as_float[0];
+                }
+            }
+
+            params.push_back(p);
+        }
+
+        return params;
+    }
+
     ReshadeEffect::~ReshadeEffect()
     {
         Logger::debug("destroying ReshadeEffect" + convertToString(this));

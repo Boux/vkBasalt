@@ -282,9 +282,45 @@ namespace vkBasalt
         ImGui::Separator();
         ImGui::Text("Effects %s (Home to toggle)", state.effectsEnabled ? "ON" : "OFF");
         ImGui::Separator();
-        ImGui::Text("Active Effects:");
-        for (const auto& name : state.effectNames)
-            ImGui::BulletText("%s", name.c_str());
+
+        // Group parameters by effect using index for unique IDs
+        std::string currentEffect;
+        int effectIndex = 0;
+        bool treeOpen = false;
+        for (const auto& param : state.parameters)
+        {
+            if (param.effectName != currentEffect)
+            {
+                if (treeOpen)
+                    ImGui::TreePop();
+                currentEffect = param.effectName;
+                effectIndex++;
+                ImGui::PushID(effectIndex);
+                treeOpen = ImGui::TreeNode("effect", "%s", currentEffect.c_str());
+                ImGui::PopID();
+                if (!treeOpen)
+                    continue;
+            }
+
+            if (treeOpen)
+            {
+                switch (param.type)
+                {
+                case ParamType::Float:
+                    ImGui::Text("%s: %.3f", param.label.c_str(), param.valueFloat);
+                    break;
+                case ParamType::Int:
+                    ImGui::Text("%s: %d", param.label.c_str(), param.valueInt);
+                    break;
+                case ParamType::Bool:
+                    ImGui::Text("%s: %s", param.label.c_str(), param.valueBool ? "true" : "false");
+                    break;
+                }
+            }
+        }
+        if (treeOpen)
+            ImGui::TreePop();
+
         ImGui::End();
 
         ImGui::Render();

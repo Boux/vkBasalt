@@ -823,6 +823,196 @@ namespace vkBasalt
                 overlayState.effectNames = pConfig->getOption<std::vector<std::string>>("effects", {"cas"});
                 overlayState.configPath = pConfig->getConfigFilePath();
                 overlayState.effectsEnabled = presentEffect;
+
+                // Collect parameters from built-in effects
+                for (const auto& effectName : overlayState.effectNames)
+                {
+                    if (effectName == "cas")
+                    {
+                        EffectParameter p;
+                        p.effectName = "cas";
+                        p.name = "casSharpness";
+                        p.label = "Sharpness";
+                        p.type = ParamType::Float;
+                        p.valueFloat = pConfig->getOption<float>("casSharpness", 0.4f);
+                        p.minFloat = 0.0f;
+                        p.maxFloat = 1.0f;
+                        overlayState.parameters.push_back(p);
+                    }
+                    else if (effectName == "dls")
+                    {
+                        EffectParameter p1;
+                        p1.effectName = "dls";
+                        p1.name = "dlsSharpness";
+                        p1.label = "Sharpness";
+                        p1.type = ParamType::Float;
+                        p1.valueFloat = pConfig->getOption<float>("dlsSharpness", 0.5f);
+                        p1.minFloat = 0.0f;
+                        p1.maxFloat = 1.0f;
+                        overlayState.parameters.push_back(p1);
+
+                        EffectParameter p2;
+                        p2.effectName = "dls";
+                        p2.name = "dlsDenoise";
+                        p2.label = "Denoise";
+                        p2.type = ParamType::Float;
+                        p2.valueFloat = pConfig->getOption<float>("dlsDenoise", 0.17f);
+                        p2.minFloat = 0.0f;
+                        p2.maxFloat = 1.0f;
+                        overlayState.parameters.push_back(p2);
+                    }
+                    else if (effectName == "fxaa")
+                    {
+                        EffectParameter p1;
+                        p1.effectName = "fxaa";
+                        p1.name = "fxaaQualitySubpix";
+                        p1.label = "Quality Subpix";
+                        p1.type = ParamType::Float;
+                        p1.valueFloat = pConfig->getOption<float>("fxaaQualitySubpix", 0.75f);
+                        p1.minFloat = 0.0f;
+                        p1.maxFloat = 1.0f;
+                        overlayState.parameters.push_back(p1);
+
+                        EffectParameter p2;
+                        p2.effectName = "fxaa";
+                        p2.name = "fxaaQualityEdgeThreshold";
+                        p2.label = "Edge Threshold";
+                        p2.type = ParamType::Float;
+                        p2.valueFloat = pConfig->getOption<float>("fxaaQualityEdgeThreshold", 0.125f);
+                        p2.minFloat = 0.0f;
+                        p2.maxFloat = 0.5f;
+                        overlayState.parameters.push_back(p2);
+
+                        EffectParameter p3;
+                        p3.effectName = "fxaa";
+                        p3.name = "fxaaQualityEdgeThresholdMin";
+                        p3.label = "Edge Threshold Min";
+                        p3.type = ParamType::Float;
+                        p3.valueFloat = pConfig->getOption<float>("fxaaQualityEdgeThresholdMin", 0.0312f);
+                        p3.minFloat = 0.0f;
+                        p3.maxFloat = 0.1f;
+                        overlayState.parameters.push_back(p3);
+                    }
+                    else if (effectName == "smaa")
+                    {
+                        EffectParameter p1;
+                        p1.effectName = "smaa";
+                        p1.name = "smaaThreshold";
+                        p1.label = "Threshold";
+                        p1.type = ParamType::Float;
+                        p1.valueFloat = pConfig->getOption<float>("smaaThreshold", 0.05f);
+                        p1.minFloat = 0.0f;
+                        p1.maxFloat = 0.5f;
+                        overlayState.parameters.push_back(p1);
+
+                        EffectParameter p2;
+                        p2.effectName = "smaa";
+                        p2.name = "smaaMaxSearchSteps";
+                        p2.label = "Max Search Steps";
+                        p2.type = ParamType::Int;
+                        p2.valueInt = pConfig->getOption<int32_t>("smaaMaxSearchSteps", 32);
+                        p2.minInt = 0;
+                        p2.maxInt = 112;
+                        overlayState.parameters.push_back(p2);
+
+                        EffectParameter p3;
+                        p3.effectName = "smaa";
+                        p3.name = "smaaMaxSearchStepsDiag";
+                        p3.label = "Max Search Steps Diag";
+                        p3.type = ParamType::Int;
+                        p3.valueInt = pConfig->getOption<int32_t>("smaaMaxSearchStepsDiag", 16);
+                        p3.minInt = 0;
+                        p3.maxInt = 20;
+                        overlayState.parameters.push_back(p3);
+
+                        EffectParameter p4;
+                        p4.effectName = "smaa";
+                        p4.name = "smaaCornerRounding";
+                        p4.label = "Corner Rounding";
+                        p4.type = ParamType::Int;
+                        p4.valueInt = pConfig->getOption<int32_t>("smaaCornerRounding", 25);
+                        p4.minInt = 0;
+                        p4.maxInt = 100;
+                        overlayState.parameters.push_back(p4);
+                    }
+                    else if (effectName == "deband")
+                    {
+                        EffectParameter p1;
+                        p1.effectName = "deband";
+                        p1.name = "debandAvgdiff";
+                        p1.label = "Avg Diff";
+                        p1.type = ParamType::Float;
+                        p1.valueFloat = pConfig->getOption<float>("debandAvgdiff", 3.4f);
+                        p1.minFloat = 0.0f;
+                        p1.maxFloat = 255.0f;
+                        overlayState.parameters.push_back(p1);
+
+                        EffectParameter p2;
+                        p2.effectName = "deband";
+                        p2.name = "debandMaxdiff";
+                        p2.label = "Max Diff";
+                        p2.type = ParamType::Float;
+                        p2.valueFloat = pConfig->getOption<float>("debandMaxdiff", 6.8f);
+                        p2.minFloat = 0.0f;
+                        p2.maxFloat = 255.0f;
+                        overlayState.parameters.push_back(p2);
+
+                        EffectParameter p3;
+                        p3.effectName = "deband";
+                        p3.name = "debandMiddiff";
+                        p3.label = "Mid Diff";
+                        p3.type = ParamType::Float;
+                        p3.valueFloat = pConfig->getOption<float>("debandMiddiff", 3.3f);
+                        p3.minFloat = 0.0f;
+                        p3.maxFloat = 255.0f;
+                        overlayState.parameters.push_back(p3);
+
+                        EffectParameter p4;
+                        p4.effectName = "deband";
+                        p4.name = "debandRange";
+                        p4.label = "Range";
+                        p4.type = ParamType::Float;
+                        p4.valueFloat = pConfig->getOption<float>("debandRange", 16.0f);
+                        p4.minFloat = 1.0f;
+                        p4.maxFloat = 64.0f;
+                        overlayState.parameters.push_back(p4);
+
+                        EffectParameter p5;
+                        p5.effectName = "deband";
+                        p5.name = "debandIterations";
+                        p5.label = "Iterations";
+                        p5.type = ParamType::Int;
+                        p5.valueInt = pConfig->getOption<int32_t>("debandIterations", 4);
+                        p5.minInt = 1;
+                        p5.maxInt = 16;
+                        overlayState.parameters.push_back(p5);
+                    }
+                    else if (effectName == "lut")
+                    {
+                        EffectParameter p;
+                        p.effectName = "lut";
+                        p.name = "lutFile";
+                        p.label = "LUT File";
+                        p.type = ParamType::Float; // Using float type but storing path length
+                        p.valueFloat = 0; // Will display file path as text instead
+                        overlayState.parameters.push_back(p);
+                    }
+                    else
+                    {
+                        // ReShade effect - get parameters from the effect itself
+                        // Find the corresponding effect in the effects vector
+                        for (const auto& effect : pLogicalSwapchain->effects)
+                        {
+                            auto params = effect->getParameters();
+                            for (const auto& param : params)
+                            {
+                                if (param.effectName == effectName)
+                                    overlayState.parameters.push_back(param);
+                            }
+                        }
+                    }
+                }
+
                 pLogicalSwapchain->imguiOverlay->updateState(overlayState);
             }
 
