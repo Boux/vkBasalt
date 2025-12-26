@@ -38,6 +38,7 @@
 #include "effect_lut.hpp"
 #include "effect_reshade.hpp"
 #include "effect_transfer.hpp"
+#include "imgui_overlay.hpp"
 
 #define VKBASALT_NAME "VK_LAYER_VKBASALT_post_processing"
 
@@ -658,6 +659,10 @@ namespace vkBasalt
         {
             Logger::debug(std::to_string(i) + " written commandbuffer " + convertToString(pLogicalSwapchain->commandBuffersNoEffect[i]));
         }
+
+        // Create ImGui overlay (disabled for testing)
+        // pLogicalSwapchain->imguiOverlay = std::make_unique<ImGuiOverlay>(
+        //     pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageCount);
 
         *pCount = std::min<uint32_t>(*pCount, pLogicalSwapchain->imageCount);
         std::memcpy(pSwapchainImages, pLogicalSwapchain->fakeImages.data(), sizeof(VkImage) * (*pCount));

@@ -1,6 +1,14 @@
 subdir('shader')
 subdir('reshade')
 
+imgui_src = [
+    'imgui/imgui.cpp',
+    'imgui/imgui_draw.cpp',
+    'imgui/imgui_tables.cpp',
+    'imgui/imgui_widgets.cpp',
+    'imgui/backends/imgui_impl_vulkan.cpp',
+]
+
 vkBasalt_src = [
     'basalt.cpp',
     'buffer.cpp',
@@ -36,6 +44,7 @@ vkBasalt_src = [
     'stb_image_resize.c',
     'util.cpp',
     'vkdispatch.cpp',
+    'imgui_overlay.cpp',
 ]
 
 x11_dep = dependency('x11')
@@ -51,10 +60,13 @@ configure_file(output: 'config_paths.hpp',
 # which conflicts with the rest codebase with with Meson --unity=on option
 keyboard_input_x11_lib = static_library('keyboard_input_x11', 'keyboard_input_x11.cpp')
 
-shared_library(meson.project_name().to_lower(), 
-    vkBasalt_src, shader_include,
+imgui_inc = include_directories('imgui')
+
+shared_library(meson.project_name().to_lower(),
+    vkBasalt_src, imgui_src, shader_include,
     link_with: [keyboard_input_x11_lib],
-    include_directories : vkBasalt_include_path,
+    include_directories : [vkBasalt_include_path, imgui_inc],
+    cpp_args : ['-DIMGUI_IMPL_VULKAN_NO_PROTOTYPES'],
     dependencies : [x11_dep, reshade_dep],
     gnu_symbol_visibility: 'hidden',
     install : true,
