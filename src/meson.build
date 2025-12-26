@@ -21,6 +21,7 @@ vkBasalt_src = [
     'effect_dls.cpp',
     'effect_fxaa.cpp',
     'effect_lut.cpp',
+    'effect_params.cpp',
     'effect_reshade.cpp',
     'effect_simple.cpp',
     'effect_smaa.cpp',
