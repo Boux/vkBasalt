@@ -1,5 +1,6 @@
 #include "imgui_overlay.hpp"
 #include "logger.hpp"
+#include "mouse_input.hpp"
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
@@ -260,35 +261,30 @@ namespace vkBasalt
         fbInfo.layers = 1;
         pLogicalDevice->vkd.CreateFramebuffer(pLogicalDevice->device, &fbInfo, nullptr, &framebuffer);
 
-        // Set display size BEFORE NewFrame
+        // Set display size and mouse input BEFORE NewFrame
         ImGuiIO& io = ImGui::GetIO();
         io.DisplaySize = ImVec2((float)width, (float)height);
+
+        // Mouse input for interactivity
+        MouseState mouse = getMouseState();
+        io.MousePos = ImVec2((float)mouse.x, (float)mouse.y);
+        io.MouseDown[0] = mouse.leftButton;
+        io.MouseDown[1] = mouse.rightButton;
+        io.MouseDown[2] = mouse.middleButton;
 
         // ImGui frame
         ImGui_ImplVulkan_NewFrame();
         ImGui::NewFrame();
 
         // vkBasalt info window
-        ImGui::Begin("vkBasalt");
-
-        ImGui::Text("Effects: %s", state.effectsEnabled ? "ON" : "OFF");
+        ImGui::Begin("vkBasalt Controls");
+        ImGui::Text("Config: %s", state.configPath.c_str());
         ImGui::Separator();
-
-        if (!state.effectNames.empty())
-        {
-            ImGui::Text("Active effects:");
-            for (const auto& name : state.effectNames)
-                ImGui::BulletText("%s", name.c_str());
-        }
-        else
-        {
-            ImGui::TextDisabled("No effects loaded");
-        }
-
+        ImGui::Text("Effects %s (Home to toggle)", state.effectsEnabled ? "ON" : "OFF");
         ImGui::Separator();
-        ImGui::TextDisabled("Config: %s", state.configPath.c_str());
-        ImGui::TextDisabled("Press overlay key to hide");
-
+        ImGui::Text("Active Effects:");
+        for (const auto& name : state.effectNames)
+            ImGui::BulletText("%s", name.c_str());
         ImGui::End();
 
         ImGui::Render();

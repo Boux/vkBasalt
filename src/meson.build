@@ -59,12 +59,13 @@ configure_file(output: 'config_paths.hpp',
 # X11/X.h library contains many definitions (e.g. None)
 # which conflicts with the rest codebase with with Meson --unity=on option
 keyboard_input_x11_lib = static_library('keyboard_input_x11', 'keyboard_input_x11.cpp')
+mouse_input_lib = static_library('mouse_input', 'mouse_input.cpp')
 
 imgui_inc = include_directories('imgui')
 
 shared_library(meson.project_name().to_lower(),
     vkBasalt_src, imgui_src, shader_include,
-    link_with: [keyboard_input_x11_lib],
+    link_with: [keyboard_input_x11_lib, mouse_input_lib],
     include_directories : [vkBasalt_include_path, imgui_inc],
     cpp_args : ['-DIMGUI_IMPL_VULKAN_NO_PROTOTYPES'],
     dependencies : [x11_dep, reshade_dep],

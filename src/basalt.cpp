@@ -703,8 +703,7 @@ namespace vkBasalt
 
         if (!initLogged)
         {
-            Logger::info("hot-reload initialized, reloadKey symbol: " + std::to_string(reloadKeySymbol));
-            Logger::info("config file path: " + pConfig->getConfigFilePath());
+            Logger::info("hot-reload initialized, config: " + pConfig->getConfigFilePath());
             initLogged = true;
         }
 
@@ -751,7 +750,6 @@ namespace vkBasalt
         {
             if (!overlayPressed)
             {
-                // Toggle all swapchain overlays
                 for (auto& swapchainPair : swapchainMap)
                 {
                     if (swapchainPair.second->imguiOverlay)
