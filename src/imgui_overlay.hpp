@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <string>
 
 #include "vulkan_include.hpp"
 #include "logical_device.hpp"
@@ -10,6 +11,13 @@
 namespace vkBasalt
 {
     class Effect;
+
+    struct OverlayState
+    {
+        std::vector<std::string> effectNames;
+        std::string configPath;
+        bool effectsEnabled = true;
+    };
 
     class ImGuiOverlay
     {
@@ -19,6 +27,8 @@ namespace vkBasalt
 
         void toggle() { visible = !visible; }
         bool isVisible() const { return visible; }
+
+        void updateState(const OverlayState& state) { this->state = state; }
 
         VkCommandBuffer recordFrame(uint32_t imageIndex, VkImageView imageView, uint32_t width, uint32_t height);
 
@@ -32,6 +42,7 @@ namespace vkBasalt
         std::vector<VkCommandBuffer> commandBuffers;
         VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
         uint32_t imageCount = 0;
+        OverlayState state;
         bool visible = false;
         bool initialized = false;
         bool backendInitialized = false;

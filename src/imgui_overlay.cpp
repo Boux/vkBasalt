@@ -268,10 +268,27 @@ namespace vkBasalt
         ImGui_ImplVulkan_NewFrame();
         ImGui::NewFrame();
 
-        // Demo window
-        ImGui::Begin("vkBasalt Controls");
-        ImGui::Text("Effects active");
-        ImGui::Text("Press overlay key to hide");
+        // vkBasalt info window
+        ImGui::Begin("vkBasalt");
+
+        ImGui::Text("Effects: %s", state.effectsEnabled ? "ON" : "OFF");
+        ImGui::Separator();
+
+        if (!state.effectNames.empty())
+        {
+            ImGui::Text("Active effects:");
+            for (const auto& name : state.effectNames)
+                ImGui::BulletText("%s", name.c_str());
+        }
+        else
+        {
+            ImGui::TextDisabled("No effects loaded");
+        }
+
+        ImGui::Separator();
+        ImGui::TextDisabled("Config: %s", state.configPath.c_str());
+        ImGui::TextDisabled("Press overlay key to hide");
+
         ImGui::End();
 
         ImGui::Render();

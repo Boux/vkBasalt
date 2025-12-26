@@ -818,7 +818,16 @@ namespace vkBasalt
             // Default: wait on effects semaphore for present
             VkSemaphore finalSemaphore = pLogicalSwapchain->semaphores[index];
 
-            // Render overlay if visible, updating the semaphore to wait on
+            // Update overlay state and render if visible
+            if (pLogicalSwapchain->imguiOverlay)
+            {
+                OverlayState overlayState;
+                overlayState.effectNames = pConfig->getOption<std::vector<std::string>>("effects", {"cas"});
+                overlayState.configPath = pConfig->getConfigFilePath();
+                overlayState.effectsEnabled = presentEffect;
+                pLogicalSwapchain->imguiOverlay->updateState(overlayState);
+            }
+
             VkCommandBuffer overlayCmd = pLogicalSwapchain->imguiOverlay
                 ? pLogicalSwapchain->imguiOverlay->recordFrame(index, pLogicalSwapchain->imageViews[index],
                       pLogicalSwapchain->imageExtent.width, pLogicalSwapchain->imageExtent.height)
