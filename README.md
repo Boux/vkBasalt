@@ -29,6 +29,10 @@ VK_ADD_IMPLICIT_LAYER_PATH=/path/to/vkBasalt_overlay/build/config ENABLE_VKBASAL
 You should then be able to press `F11` to show the overlay GUI in-game.
 you can change this keybinding in your `vkBasalt.conf` with `overlayKey = <key>`.
 
+**Warning** I have not tested with Nvidia, only AMD.
+
+<img width="1920" height="961" alt="image" src="https://github.com/user-attachments/assets/cc2ff254-03a5-455b-8896-efedc0b28cdd" />
+
 ---
 # vkBasalt
 
