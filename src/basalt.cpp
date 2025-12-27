@@ -76,40 +76,39 @@ namespace vkBasalt
         return *(void**) inst;
     }
 
-    // Helper function to get all available effects (built-in + reshade shaders)
-    std::vector<std::string> getAvailableEffects(Config* pConfig)
+    // Helper function to get available effects separated by source
+    void getAvailableEffects(Config* pConfig,
+                             std::vector<std::string>& currentConfigEffects,
+                             std::vector<std::string>& defaultConfigEffects,
+                             std::map<std::string, std::string>& effectPaths)
     {
-        std::vector<std::string> effects;
+        currentConfigEffects.clear();
+        defaultConfigEffects.clear();
+        effectPaths.clear();
 
-        // Built-in effects
-        effects.push_back("cas");
-        effects.push_back("dls");
-        effects.push_back("fxaa");
-        effects.push_back("smaa");
-        effects.push_back("deband");
-        effects.push_back("lut");
-
-        // Scan reshade include path for .fx files
-        std::string includePath = pConfig->getOption<std::string>("reshadeIncludePath", "");
-        if (!includePath.empty() && std::filesystem::exists(includePath))
+        // Get effect definitions from current config
+        auto configEffects = pConfig->getEffectDefinitions();
+        for (const auto& [name, path] : configEffects)
         {
-            try
-            {
-                for (const auto& entry : std::filesystem::directory_iterator(includePath))
-                {
-                    if (entry.is_regular_file() && entry.path().extension() == ".fx")
-                    {
-                        effects.push_back(entry.path().stem().string());  // Without .fx
-                    }
-                }
-            }
-            catch (const std::exception& e)
-            {
-                Logger::warn("Failed to scan reshade include path: " + std::string(e.what()));
-            }
+            currentConfigEffects.push_back(name);
+            effectPaths[name] = path;
         }
 
-        return effects;
+        // Also load effect definitions from the default config file (ignoring VKBASALT_CONFIG_FILE env var)
+        Config defaultConfig(true);
+        if (defaultConfig.getConfigFilePath() != pConfig->getConfigFilePath())
+        {
+            auto defaultEffects = defaultConfig.getEffectDefinitions();
+            for (const auto& [name, path] : defaultEffects)
+            {
+                // Only add if not already in current config
+                if (std::find(currentConfigEffects.begin(), currentConfigEffects.end(), name) == currentConfigEffects.end())
+                {
+                    defaultConfigEffects.push_back(name);
+                    effectPaths[name] = path;
+                }
+            }
+        }
     }
 
     // Helper function to reload effects for a swapchain (for hot-reload)
@@ -941,8 +940,11 @@ namespace vkBasalt
                 overlayState.effectNames = pLogicalSwapchain->imguiOverlay->getActiveEffects();
                 if (overlayState.effectNames.empty())
                     overlayState.effectNames = pConfig->getOption<std::vector<std::string>>("effects", {"cas"});
-                overlayState.availableEffects = getAvailableEffects(pConfig.get());
+                getAvailableEffects(pConfig.get(), overlayState.currentConfigEffects,
+                                    overlayState.defaultConfigEffects, overlayState.effectPaths);
                 overlayState.configPath = pConfig->getConfigFilePath();
+                // Extract just the filename from the path
+                overlayState.configName = std::filesystem::path(overlayState.configPath).filename().string();
                 overlayState.effectsEnabled = presentEffect;
 
                 // Collect parameters from all effects

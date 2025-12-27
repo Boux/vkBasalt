@@ -42,9 +42,12 @@ namespace vkBasalt
 
     struct OverlayState
     {
-        std::vector<std::string> effectNames;      // Effects in current config
-        std::vector<std::string> availableEffects; // All available effects (built-in + reshade)
+        std::vector<std::string> effectNames;           // Effects in current config
+        std::vector<std::string> currentConfigEffects;  // ReShade effects from current config (e.g., tunic.conf)
+        std::vector<std::string> defaultConfigEffects;  // ReShade effects from default vkBasalt.conf (no duplicates)
+        std::map<std::string, std::string> effectPaths; // Effect name -> file path (for reshade effects)
         std::string configPath;
+        std::string configName;  // Just the filename (e.g., "tunic.conf")
         bool effectsEnabled = true;
         std::vector<EffectParameter> parameters;
     };

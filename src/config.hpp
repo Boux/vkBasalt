@@ -16,7 +16,7 @@ namespace vkBasalt
     class Config
     {
     public:
-        Config();
+        Config(bool ignoreEnvVar = false);
         Config(const Config& other);
 
         template<typename T>
@@ -45,6 +45,9 @@ namespace vkBasalt
         bool        hasConfigChanged();
         void        reload();
         std::string getConfigFilePath() const { return configFilePath; }
+
+        // Get all effect definitions (keys whose values are .fx file paths)
+        std::unordered_map<std::string, std::string> getEffectDefinitions() const;
 
     private:
         std::unordered_map<std::string, std::string> options;

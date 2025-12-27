@@ -382,18 +382,8 @@ namespace vkBasalt
             ImGui::Text("Selected: %zu / %zu", selectedCount, maxEffects);
             ImGui::Separator();
 
-            // Sort effects: built-in first (alphabetically), then reshade (alphabetically)
-            std::vector<std::string> builtinEffects, reshadeEffects;
-            for (const auto& effectName : state.availableEffects)
-            {
-                if (effectName == "cas" || effectName == "dls" || effectName == "fxaa" ||
-                    effectName == "smaa" || effectName == "deband" || effectName == "lut")
-                    builtinEffects.push_back(effectName);
-                else
-                    reshadeEffects.push_back(effectName);
-            }
-            std::sort(builtinEffects.begin(), builtinEffects.end());
-            std::sort(reshadeEffects.begin(), reshadeEffects.end());
+            // Built-in effects (hardcoded)
+            std::vector<std::string> builtinEffects = {"cas", "dls", "fxaa", "smaa", "deband", "lut"};
 
             // Helper to check if effect is in vector
             auto containsEffect = [](const std::vector<std::string>& vec, const std::string& name) {
@@ -425,21 +415,26 @@ namespace vkBasalt
             float footerHeight = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
             ImGui::BeginChild("SelectionList", ImVec2(0, -footerHeight), false);
 
-            // Show built-in effects first
-            if (!builtinEffects.empty())
+            // Category 1: Built-in effects
+            ImGui::Text("Built-in:");
+            for (const auto& effectName : builtinEffects)
+                renderEffectCheckbox(effectName);
+
+            // Category 2: ReShade effects from current config
+            if (!state.currentConfigEffects.empty())
             {
-                ImGui::Text("Built-in:");
-                for (const auto& effectName : builtinEffects)
+                ImGui::Separator();
+                ImGui::Text("ReShade (%s):", state.configName.c_str());
+                for (const auto& effectName : state.currentConfigEffects)
                     renderEffectCheckbox(effectName);
             }
 
-            // Show reshade effects
-            if (!reshadeEffects.empty())
+            // Category 3: ReShade effects from default config (no duplicates)
+            if (!state.defaultConfigEffects.empty())
             {
-                if (!builtinEffects.empty())
-                    ImGui::Separator();
-                ImGui::Text("Reshade:");
-                for (const auto& effectName : reshadeEffects)
+                ImGui::Separator();
+                ImGui::Text("ReShade (all):");
+                for (const auto& effectName : state.defaultConfigEffects)
                     renderEffectCheckbox(effectName);
             }
 

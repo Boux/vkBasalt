@@ -6,10 +6,10 @@
 
 namespace vkBasalt
 {
-    Config::Config()
+    Config::Config(bool ignoreEnvVar)
     {
-        // Custom config file path
-        const char* tmpConfEnv       = std::getenv("VKBASALT_CONFIG_FILE");
+        // Custom config file path (skip if ignoreEnvVar is true)
+        const char* tmpConfEnv       = ignoreEnvVar ? nullptr : std::getenv("VKBASALT_CONFIG_FILE");
         std::string customConfigFile = tmpConfEnv ? std::string(tmpConfEnv) : "";
 
         // User config file path
@@ -299,5 +299,21 @@ namespace vkBasalt
         {
             result.push_back(newString);
         }
+    }
+
+    std::unordered_map<std::string, std::string> Config::getEffectDefinitions() const
+    {
+        std::unordered_map<std::string, std::string> effects;
+
+        for (const auto& [key, value] : options)
+        {
+            // Check if value ends with .fx (is an effect file path)
+            if (value.size() >= 3 && value.substr(value.size() - 3) == ".fx")
+            {
+                effects[key] = value;
+            }
+        }
+
+        return effects;
     }
 } // namespace vkBasalt
