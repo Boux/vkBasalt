@@ -390,6 +390,10 @@ namespace vkBasalt
                     ImGui::EndDisabled();
             };
 
+            // Scrollable effect list (reserve space for footer buttons)
+            float footerHeight = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
+            ImGui::BeginChild("SelectionList", ImVec2(0, -footerHeight), false);
+
             // Show built-in effects first
             if (!builtinEffects.empty())
             {
@@ -407,6 +411,8 @@ namespace vkBasalt
                 for (const auto& effectName : reshadeEffects)
                     renderEffectCheckbox(effectName);
             }
+
+            ImGui::EndChild();
 
             ImGui::Separator();
 
@@ -445,6 +451,10 @@ namespace vkBasalt
                 inSelectionMode = true;
             }
             ImGui::Separator();
+
+            // Scrollable effect list (reserve space for footer controls)
+            float footerHeight = ImGui::GetFrameHeightWithSpacing() * 2 + ImGui::GetStyle().ItemSpacing.y;
+            ImGui::BeginChild("EffectList", ImVec2(0, -footerHeight), false);
 
             // Show selected effects with their parameters
             bool changedThisFrame = false;
@@ -533,6 +543,8 @@ namespace vkBasalt
                     ImGui::TreePop();
                 }
             }
+
+            ImGui::EndChild();
 
             ImGui::Separator();
             ImGui::Checkbox("Apply automatically", &autoApply);
