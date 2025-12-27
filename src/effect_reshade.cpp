@@ -8,6 +8,7 @@
 #include <set>
 #include <variant>
 #include <algorithm>
+#include <filesystem>
 
 #include "image_view.hpp"
 #include "descriptor_set.hpp"
@@ -1245,7 +1246,10 @@ namespace vkBasalt
         std::string effectPath = pConfig->getOption<std::string>(effectName, "");
         if (effectPath.empty() && !includePath.empty())
         {
-            effectPath = includePath + "/" + effectName;
+            // Try with .fx extension first, then without
+            effectPath = includePath + "/" + effectName + ".fx";
+            if (!std::filesystem::exists(effectPath))
+                effectPath = includePath + "/" + effectName;
         }
 
         if (effectPath.empty() || !preprocessor.append_file(effectPath))

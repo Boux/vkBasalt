@@ -99,7 +99,7 @@ namespace vkBasalt
                 {
                     if (entry.is_regular_file() && entry.path().extension() == ".fx")
                     {
-                        effects.push_back(entry.path().filename().string());
+                        effects.push_back(entry.path().stem().string());  // Without .fx
                     }
                 }
             }

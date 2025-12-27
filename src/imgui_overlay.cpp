@@ -361,18 +361,18 @@ namespace vkBasalt
             std::vector<std::string> builtinEffects, reshadeEffects;
             for (const auto& effectName : state.availableEffects)
             {
-                if (effectName.size() > 3 && effectName.substr(effectName.size() - 3) == ".fx")
-                    reshadeEffects.push_back(effectName);
-                else
+                if (effectName == "cas" || effectName == "dls" || effectName == "fxaa" ||
+                    effectName == "smaa" || effectName == "deband" || effectName == "lut")
                     builtinEffects.push_back(effectName);
+                else
+                    reshadeEffects.push_back(effectName);
             }
             std::sort(builtinEffects.begin(), builtinEffects.end());
             std::sort(reshadeEffects.begin(), reshadeEffects.end());
 
             // Helper lambda to render effect checkbox
             auto renderEffectCheckbox = [&](const std::string& effectName) {
-                bool isSelected = tempSelectedEffects.find(effectName) != tempSelectedEffects.end();
-                bool wasSelected = isSelected;
+                bool isSelected = tempSelectedEffects.count(effectName) > 0;
 
                 // Disable checkbox if at max and not selected
                 bool atLimit = selectedCount >= maxEffects && !isSelected;
@@ -381,9 +381,9 @@ namespace vkBasalt
 
                 if (ImGui::Checkbox(effectName.c_str(), &isSelected))
                 {
-                    if (isSelected && !wasSelected)
+                    if (isSelected)
                         tempSelectedEffects.insert(effectName);
-                    else if (!isSelected && wasSelected)
+                    else
                         tempSelectedEffects.erase(effectName);
                 }
 
