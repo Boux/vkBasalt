@@ -1,4 +1,37 @@
+## Fork Notice
+This is a fork with an experimental ImGui overlay for in-game effect configuration. Most of this fork was written with vibe-coding. I won't even pretend to own any of this code as I am not a C++ or Vulkan dev. I'm a webdev, I do CSS and I enjoy it. My monkey brain is too small for this low level stuff. I wanted these features in vkBasalt since forever so I just asked the AI to do it for me.
+
+### How to try out the overlay GUI branch (without replacing system vkBasalt)
+```
+git clone https://github.com/Boux/vkBasalt_overlay.git
+cd vkBasalt_overlay
+git checkout feature/imgui
+meson setup --buildtype=debug ./build
+ninja -C ./build
+```
+If it fails to build, you are probably missing dependencies.
+
+Edit `./build/config/vkBasalt.json` and set `library_path` to the absolute path of the built library:
+```json
+"library_path": "/path/to/vkBasalt_overlay/build/src/libvkbasalt.so"
+```
+
+Test with vkgears to see if it works
+```
+VK_ADD_IMPLICIT_LAYER_PATH=/path/to/vkBasalt_overlay/build/config ENABLE_VKBASALT=1 vkgears
+```
+
+Steam game launch options (I have only tested with Tunic as of now)
+```
+VK_ADD_IMPLICIT_LAYER_PATH=/path/to/vkBasalt_overlay/build/config ENABLE_VKBASALT=1 %command%
+```
+
+You should then be able to press `F11` to show the overlay GUI in-game.
+you can change this keybinding in your `vkBasalt.conf` with `overlayKey = <key>`.
+
+---
 # vkBasalt
+
 vkBasalt is a Vulkan post processing layer to enhance the visual graphics of games.
 
 Currently, the build in effects are:
@@ -25,7 +58,7 @@ Before building, you will need:
 
 ### Building
 
-**These instructions use `--prefix=/usr`, which is generally not recommened since vkBasalt will be installed in directories that are meant for the package manager. The alternative is not setting the prefix, it will then be installed in `/usr/local`. But you need to make sure that `ld` finds the library since /usr/local is very likely not in the default path.** 
+**These instructions use `--prefix=/usr`, which is generally not recommened since vkBasalt will be installed in directories that are meant for the package manager. The alternative is not setting the prefix, it will then be installed in `/usr/local`. But you need to make sure that `ld` finds the library since /usr/local is very likely not in the default path.**
 
 In general, prefer using distro provided packages.
 
@@ -74,7 +107,7 @@ With Lutris, follow these steps below:
 ### Steam
 With Steam, edit your launch options and add:
 ```ini
-ENABLE_VKBASALT=1 %command% 
+ENABLE_VKBASALT=1 %command%
 ```
 
 ## Configure
