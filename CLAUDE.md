@@ -109,7 +109,7 @@ Searches for `vkBasalt.conf` in order:
 
 ### ImGui Overlay (imgui_overlay.cpp)
 
-In-game UI toggled with F11 key (configurable). Shows:
+In-game UI toggled with End key (configurable). Shows:
 - Active effects list
 - Effect parameters with current values
 - Config file path

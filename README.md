@@ -26,7 +26,7 @@ Steam game launch options (I have only tested with Tunic as of now)
 VK_ADD_IMPLICIT_LAYER_PATH=/path/to/vkBasalt_overlay/build/config ENABLE_VKBASALT=1 %command%
 ```
 
-You should then be able to press `F11` to show the overlay GUI in-game.
+You should then be able to press `End` to show the overlay GUI in-game.
 you can change this keybinding in your `vkBasalt.conf` with `overlayKey = <key>`.
 
 **Warning** I have not tested with Nvidia, only AMD.

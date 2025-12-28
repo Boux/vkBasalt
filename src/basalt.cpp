@@ -770,7 +770,7 @@ namespace vkBasalt
 
         static uint32_t keySymbol = convertToKeySym(pConfig->getOption<std::string>("toggleKey", "Home"));
         static uint32_t reloadKeySymbol = convertToKeySym(pConfig->getOption<std::string>("reloadKey", "F10"));
-        static uint32_t overlayKeySymbol = convertToKeySym(pConfig->getOption<std::string>("overlayKey", "F11"));
+        static uint32_t overlayKeySymbol = convertToKeySym(pConfig->getOption<std::string>("overlayKey", "End"));
         static bool initLogged = false;
 
         static bool pressed       = false;
