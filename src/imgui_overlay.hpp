@@ -84,6 +84,10 @@ namespace vkBasalt
         std::string getPendingConfigPath() const { return pendingConfigPath; }
         void clearPendingConfig() { pendingConfigPath.clear(); }
 
+        // Effects toggle (global on/off)
+        bool hasToggleEffectsRequest() const { return toggleEffectsRequested; }
+        void clearToggleEffectsRequest() { toggleEffectsRequested = false; }
+
         // Returns map of effect name -> enabled state
         const std::map<std::string, bool>& getEffectEnabledStates() const { return effectEnabledStates; }
 
@@ -126,6 +130,7 @@ namespace vkBasalt
         int dragTargetIndex = -1;   // Index where effect will be dropped
         bool isDragging = false;    // True while actively dragging
         bool applyRequested = false;
+        bool toggleEffectsRequested = false;
         bool autoApply = true;
         bool paramsDirty = false;  // True when params changed, waiting for debounce
         std::chrono::steady_clock::time_point lastChangeTime;

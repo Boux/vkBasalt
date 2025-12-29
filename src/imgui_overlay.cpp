@@ -623,7 +623,11 @@ namespace vkBasalt
                 inConfigManageMode = true;
             ImGui::Separator();
 
-            ImGui::Text("Effects %s (Home to toggle)", state.effectsEnabled ? "ON" : "OFF");
+            bool effectsOn = state.effectsEnabled;
+            if (ImGui::Checkbox(effectsOn ? "Effects ON" : "Effects OFF", &effectsOn))
+                toggleEffectsRequested = true;
+            ImGui::SameLine();
+            ImGui::TextDisabled("(Home)");
             ImGui::Separator();
 
             // Select Effects button

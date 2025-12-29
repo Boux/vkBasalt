@@ -961,7 +961,7 @@ namespace vkBasalt
             initLogged = true;
         }
 
-        // Toggle effect on/off
+        // Toggle effect on/off (keyboard)
         if (isKeyPressed(keySymbol))
         {
             if (!pressed)
@@ -1019,6 +1019,14 @@ namespace vkBasalt
         // Check for Apply button press in overlay (overlay is at device level)
         std::map<std::string, bool> effectEnabledStates;
         LogicalDevice* pLogicalDevice = deviceMap[GetKey(queue)].get();
+
+        // Toggle effects on/off via overlay checkbox
+        if (pLogicalDevice->imguiOverlay && pLogicalDevice->imguiOverlay->hasToggleEffectsRequest())
+        {
+            presentEffect = !presentEffect;
+            pLogicalDevice->imguiOverlay->clearToggleEffectsRequest();
+        }
+
         if (pLogicalDevice->imguiOverlay && pLogicalDevice->imguiOverlay->hasModifiedParams())
         {
             Logger::info("Applying modified parameters from overlay");
