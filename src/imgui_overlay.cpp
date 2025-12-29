@@ -106,17 +106,10 @@ namespace vkBasalt
     {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
+        ImGui::GetIO().IniFilename = nullptr;
 
-        // Set imgui.ini path to config directory instead of game's working directory
-        static std::string iniPath;
-        if (iniPath.empty())
-        {
-            std::string baseDir = ConfigSerializer::getBaseConfigDir();
-            if (!baseDir.empty())
-                iniPath = baseDir + "/imgui.ini";
-        }
-        if (!iniPath.empty())
-            ImGui::GetIO().IniFilename = iniPath.c_str();
+        std::string iniPath = ConfigSerializer::getBaseConfigDir() + "/imgui.ini";
+        ImGui::LoadIniSettingsFromDisk(iniPath.c_str());
 
         ImGui::StyleColorsDark();
 
@@ -147,6 +140,9 @@ namespace vkBasalt
         if (!initialized) return;
 
         pLogicalDevice->vkd.QueueWaitIdle(pLogicalDevice->queue);
+
+        std::string iniPath = ConfigSerializer::getBaseConfigDir() + "/imgui.ini";
+        ImGui::SaveIniSettingsToDisk(iniPath.c_str());
 
         if (backendInitialized)
             ImGui_ImplVulkan_Shutdown();
