@@ -347,32 +347,37 @@ namespace vkBasalt
                 continue;
             }
 
-            if (effectStrings[i] == std::string("fxaa"))
+            // Use effectType from registry to handle instance names like "cas.2"
+            std::string effectType = effectRegistry.getEffectType(effectStrings[i]);
+            if (effectType.empty())
+                effectType = effectStrings[i];  // Fallback to effect name if no type stored
+
+            if (effectType == std::string("fxaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new FxaaEffect(pLogicalDevice, srgbFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("cas"))
+            else if (effectType == std::string("cas"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new CasEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("deband"))
+            else if (effectType == std::string("deband"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DebandEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("smaa"))
+            else if (effectType == std::string("smaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new SmaaEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("lut"))
+            else if (effectType == std::string("lut"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new LutEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("dls"))
+            else if (effectType == std::string("dls"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DlsEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
@@ -855,37 +860,43 @@ namespace vkBasalt
                 Logger::debug("not using swapchain images as second images");
             }
             Logger::debug(std::to_string(secondImages.size()) + " images in secondImages");
-            if (effectStrings[i] == std::string("fxaa"))
+
+            // Use effectType from registry to handle instance names like "cas.2"
+            std::string effectType = effectRegistry.getEffectType(effectStrings[i]);
+            if (effectType.empty())
+                effectType = effectStrings[i];  // Fallback to effect name if no type stored
+
+            if (effectType == std::string("fxaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new FxaaEffect(pLogicalDevice, srgbFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created FxaaEffect");
             }
-            else if (effectStrings[i] == std::string("cas"))
+            else if (effectType == std::string("cas"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new CasEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created CasEffect");
             }
-            else if (effectStrings[i] == std::string("deband"))
+            else if (effectType == std::string("deband"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DebandEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created DebandEffect");
             }
-            else if (effectStrings[i] == std::string("smaa"))
+            else if (effectType == std::string("smaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new SmaaEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created SmaaEffect");
             }
-            else if (effectStrings[i] == std::string("lut"))
+            else if (effectType == std::string("lut"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new LutEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created LutEffect");
             }
-            else if (effectStrings[i] == std::string("dls"))
+            else if (effectType == std::string("dls"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DlsEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
