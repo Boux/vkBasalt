@@ -95,6 +95,9 @@ namespace vkBasalt
         // Set the effect registry (single source of truth for enabled states)
         void setEffectRegistry(EffectRegistry* registry) { pEffectRegistry = registry; }
 
+        // Trigger debounced reload (for config switch)
+        void markDirty() { paramsDirty = true; lastChangeTime = std::chrono::steady_clock::now(); }
+
         // Returns list of effects that should be active (enabled, for reloading)
         std::vector<std::string> getActiveEffects() const;
 

@@ -1099,29 +1099,25 @@ namespace vkBasalt
                 std::vector<std::string> disabledEffects = pConfig->getOption<std::vector<std::string>>("disabledEffects", {});
                 pLogicalDevice->imguiOverlay->setSelectedEffects(newEffects, disabledEffects);
                 pLogicalDevice->imguiOverlay->clearPendingConfig();
-                // Effect enabled states are updated in registry by setSelectedEffects()
+                pLogicalDevice->imguiOverlay->markDirty();  // Defer reload via debounce
             }
             else
             {
                 pConfig->reload();
-            }
-            cachedEffects.initialized = false;  // Invalidate cache
-            cachedParams.dirty = true;          // Invalidate params cache
+                cachedEffects.initialized = false;
+                cachedParams.dirty = true;
 
-            // Get active effects from overlay (at device level)
-            std::vector<std::string> activeEffects;
-            if (pLogicalDevice->imguiOverlay)
-                activeEffects = pLogicalDevice->imguiOverlay->getActiveEffects();
-            else
-                activeEffects = pConfig->getOption<std::vector<std::string>>("effects", {"cas"});
+                std::vector<std::string> activeEffects;
+                if (pLogicalDevice->imguiOverlay)
+                    activeEffects = pLogicalDevice->imguiOverlay->getActiveEffects();
+                else
+                    activeEffects = pConfig->getOption<std::vector<std::string>>("effects", {"cas"});
 
-            // Reload effects for all swapchains
-            for (auto& swapchainPair : swapchainMap)
-            {
-                LogicalSwapchain* pLogicalSwapchain = swapchainPair.second.get();
-                if (pLogicalSwapchain->fakeImages.size() > 0)
+                for (auto& swapchainPair : swapchainMap)
                 {
-                    reloadEffectsForSwapchain(pLogicalSwapchain, pConfig.get(), activeEffects);
+                    LogicalSwapchain* pLogicalSwapchain = swapchainPair.second.get();
+                    if (pLogicalSwapchain->fakeImages.size() > 0)
+                        reloadEffectsForSwapchain(pLogicalSwapchain, pConfig.get(), activeEffects);
                 }
             }
         }
