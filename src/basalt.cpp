@@ -379,13 +379,16 @@ namespace vkBasalt
             }
             else
             {
+                // Get effect file path from registry (supports instance names like "Cartoon.2")
+                std::string effectPath = effectRegistry.getEffectFilePath(effectStrings[i]);
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
                                                                                                pLogicalSwapchain->format,
                                                                                                pLogicalSwapchain->imageExtent,
                                                                                                firstImages,
                                                                                                secondImages,
                                                                                                pConfig,
-                                                                                               effectStrings[i])));
+                                                                                               effectStrings[i],
+                                                                                               effectPath)));
             }
         }
 
@@ -820,6 +823,16 @@ namespace vkBasalt
         VkFormat unormFormat = convertToUNORM(pLogicalSwapchain->format);
         VkFormat srgbFormat  = convertToSRGB(pLogicalSwapchain->format);
 
+        // If no effects (all disabled), add pass-through so commandBuffersEffect still works
+        if (effectStrings.empty())
+        {
+            std::vector<VkImage> firstImages(pLogicalSwapchain->fakeImages.begin(),
+                                             pLogicalSwapchain->fakeImages.begin() + pLogicalSwapchain->imageCount);
+            pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new TransferEffect(
+                pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent,
+                firstImages, pLogicalSwapchain->images, pConfig.get())));
+        }
+
         for (uint32_t i = 0; i < effectStrings.size(); i++)
         {
             Logger::debug("current effectString " + effectStrings[i]);
@@ -880,13 +893,16 @@ namespace vkBasalt
             }
             else
             {
+                // Get effect file path from registry (supports instance names like "Cartoon.2")
+                std::string effectPath = effectRegistry.getEffectFilePath(effectStrings[i]);
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
                                                                                                pLogicalSwapchain->format,
                                                                                                pLogicalSwapchain->imageExtent,
                                                                                                firstImages,
                                                                                                secondImages,
                                                                                                pConfig.get(),
-                                                                                               effectStrings[i])));
+                                                                                               effectStrings[i],
+                                                                                               effectPath)));
                 Logger::debug("created ReshadeEffect");
             }
         }

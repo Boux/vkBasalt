@@ -35,7 +35,8 @@ namespace vkBasalt
                                  std::vector<VkImage> inputImages,
                                  std::vector<VkImage> outputImages,
                                  Config*              pConfig,
-                                 std::string          effectName)
+                                 std::string          effectName,
+                                 std::string          effectPath)
     {
         Logger::debug("in creating ReshadeEffect");
 
@@ -45,6 +46,7 @@ namespace vkBasalt
         this->outputImages     = outputImages;
         this->pConfig          = pConfig;
         this->effectName       = effectName;
+        this->effectPath       = effectPath;
         inputOutputFormatUNORM = convertToUNORM(format);
         inputOutputFormatSRGB  = convertToSRGB(format);
 
@@ -1245,19 +1247,23 @@ namespace vkBasalt
         std::string includePath = pConfig->getOption<std::string>("reshadeIncludePath");
         preprocessor.add_include_path(includePath);
 
-        // First try to get effect path from config, otherwise construct from includePath + effectName
-        std::string effectPath = pConfig->getOption<std::string>(effectName, "");
-        if (effectPath.empty() && !includePath.empty())
+        // Use provided effectPath, or try to find it from config/includePath
+        std::string shaderPath = this->effectPath;
+        if (shaderPath.empty())
         {
-            // Try with .fx extension first, then without
-            effectPath = includePath + "/" + effectName + ".fx";
-            if (!std::filesystem::exists(effectPath))
-                effectPath = includePath + "/" + effectName;
+            shaderPath = pConfig->getOption<std::string>(effectName, "");
+            if (shaderPath.empty() && !includePath.empty())
+            {
+                // Try with .fx extension first, then without
+                shaderPath = includePath + "/" + effectName + ".fx";
+                if (!std::filesystem::exists(shaderPath))
+                    shaderPath = includePath + "/" + effectName;
+            }
         }
 
-        if (effectPath.empty() || !preprocessor.append_file(effectPath))
+        if (shaderPath.empty() || !preprocessor.append_file(shaderPath))
         {
-            Logger::err("failed to load shader file: " + effectPath);
+            Logger::err("failed to load shader file: " + shaderPath);
             Logger::err("Does the filepath exist and does it not include spaces?");
         }
 

@@ -129,7 +129,7 @@ namespace vkBasalt
         OverlayState state;
         std::vector<EffectParameter> editableParams;  // Persistent editable values
         std::vector<std::string> selectedEffects;           // Effects user has selected (ordered)
-        std::vector<std::string> tempSelectedEffects;       // Temporary selection while in selection mode
+        std::vector<std::pair<std::string, std::string>> pendingAddEffects;  // {instanceName, effectType} to add
         bool inSelectionMode = false;
         bool inConfigManageMode = false;
         std::vector<std::string> configList;

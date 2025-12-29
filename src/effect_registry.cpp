@@ -29,7 +29,7 @@ namespace vkBasalt
             p.label = label;
             p.type = ParamType::Float;
             p.defaultFloat = defaultVal;
-            p.valueFloat = pConfig->getOption<float>(name, defaultVal);
+            p.valueFloat = pConfig->getInstanceOption<float>(effectName, name, defaultVal);
             p.minFloat = minVal;
             p.maxFloat = maxVal;
             return p;
@@ -51,7 +51,7 @@ namespace vkBasalt
             p.label = label;
             p.type = ParamType::Int;
             p.defaultInt = defaultVal;
-            p.valueInt = pConfig->getOption<int32_t>(name, defaultVal);
+            p.valueInt = pConfig->getInstanceOption<int32_t>(effectName, name, defaultVal);
             p.minInt = minVal;
             p.maxInt = maxVal;
             return p;
@@ -369,28 +369,39 @@ namespace vkBasalt
         return findEffect(name) != nullptr;
     }
 
-    void EffectRegistry::ensureEffect(const std::string& name, const std::string& effectPath)
+    std::string EffectRegistry::getEffectFilePath(const std::string& name) const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        const EffectConfig* effect = findEffect(name);
+        return effect ? effect->filePath : "";
+    }
+
+    void EffectRegistry::ensureEffect(const std::string& instanceName, const std::string& effectType)
     {
         {
             std::lock_guard<std::mutex> lock(mutex);
-            if (findEffect(name))
+            if (findEffect(instanceName))
                 return;
         }
 
-        if (isBuiltInEffect(name))
+        // If effectType not provided, assume instanceName is the effect type
+        std::string type = effectType.empty() ? instanceName : effectType;
+
+        if (isBuiltInEffect(type))
         {
-            initBuiltInEffect(name);
+            initBuiltInEffect(instanceName);
             return;
         }
 
-        std::string path = effectPath.empty() ? findEffectPath(name, pConfig) : effectPath;
+        // Use effectType to find the shader file
+        std::string path = findEffectPath(type, pConfig);
         if (path.empty() || !std::filesystem::exists(path))
         {
-            Logger::warn("EffectRegistry::ensureEffect: could not find effect file for: " + name);
+            Logger::warn("EffectRegistry::ensureEffect: could not find effect file for: " + type);
             return;
         }
 
-        initReshadeEffect(name, path);
+        initReshadeEffect(instanceName, path);
     }
 
 } // namespace vkBasalt

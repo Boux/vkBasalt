@@ -60,6 +60,9 @@ namespace vkBasalt
         // Check if effect exists in registry
         bool hasEffect(const std::string& name) const;
 
+        // Get the file path for an effect (for ReShade effects)
+        std::string getEffectFilePath(const std::string& name) const;
+
     private:
         std::vector<EffectConfig> effects;
         Config* pConfig = nullptr;
