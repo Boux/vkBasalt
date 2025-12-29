@@ -215,16 +215,33 @@ namespace vkBasalt
     std::vector<std::string> ImGuiOverlay::getActiveEffects() const
     {
         std::vector<std::string> activeEffects;
-
-        // Return enabled effects from selectedEffects
         for (const auto& effectName : selectedEffects)
         {
             auto it = effectEnabledStates.find(effectName);
-            if (it != effectEnabledStates.end() && it->second)
-                activeEffects.push_back(effectName);
+            if (it == effectEnabledStates.end() || !it->second)
+                continue;
+            activeEffects.push_back(effectName);
         }
-
         return activeEffects;
+    }
+
+    void ImGuiOverlay::saveCurrentConfig()
+    {
+        std::vector<EffectParam> params;
+        for (const auto& p : editableParams)
+        {
+            EffectParam ep;
+            ep.effectName = p.effectName;
+            ep.paramName = p.name;
+            if (p.type == ParamType::Float)
+                ep.value = std::to_string(p.valueFloat);
+            else if (p.type == ParamType::Int)
+                ep.value = std::to_string(p.valueInt);
+            else
+                ep.value = p.valueBool ? "true" : "false";
+            params.push_back(ep);
+        }
+        ConfigSerializer::saveConfig(saveConfigName, selectedEffects, params);
     }
 
     void ImGuiOverlay::setSelectedEffects(const std::vector<std::string>& effects)
@@ -380,16 +397,17 @@ namespace vkBasalt
         io.MouseDrawCursor = true;  // Draw software cursor (games often hide the OS cursor)
 
         // Keyboard input for text fields
+        // Keys are one-shot events, so we send press and release in same frame
         KeyboardState keyboard = getKeyboardState();
         for (char c : keyboard.typedChars)
             io.AddInputCharacter(c);
-        if (keyboard.backspace) io.AddKeyEvent(ImGuiKey_Backspace, true);
-        if (keyboard.del) io.AddKeyEvent(ImGuiKey_Delete, true);
-        if (keyboard.enter) io.AddKeyEvent(ImGuiKey_Enter, true);
-        if (keyboard.left) io.AddKeyEvent(ImGuiKey_LeftArrow, true);
-        if (keyboard.right) io.AddKeyEvent(ImGuiKey_RightArrow, true);
-        if (keyboard.home) io.AddKeyEvent(ImGuiKey_Home, true);
-        if (keyboard.end) io.AddKeyEvent(ImGuiKey_End, true);
+        if (keyboard.backspace) { io.AddKeyEvent(ImGuiKey_Backspace, true); io.AddKeyEvent(ImGuiKey_Backspace, false); }
+        if (keyboard.del) { io.AddKeyEvent(ImGuiKey_Delete, true); io.AddKeyEvent(ImGuiKey_Delete, false); }
+        if (keyboard.enter) { io.AddKeyEvent(ImGuiKey_Enter, true); io.AddKeyEvent(ImGuiKey_Enter, false); }
+        if (keyboard.left) { io.AddKeyEvent(ImGuiKey_LeftArrow, true); io.AddKeyEvent(ImGuiKey_LeftArrow, false); }
+        if (keyboard.right) { io.AddKeyEvent(ImGuiKey_RightArrow, true); io.AddKeyEvent(ImGuiKey_RightArrow, false); }
+        if (keyboard.home) { io.AddKeyEvent(ImGuiKey_Home, true); io.AddKeyEvent(ImGuiKey_Home, false); }
+        if (keyboard.end) { io.AddKeyEvent(ImGuiKey_End, true); io.AddKeyEvent(ImGuiKey_End, false); }
 
         // ImGui frame
         ImGui_ImplVulkan_NewFrame();
@@ -558,52 +576,30 @@ namespace vkBasalt
             ImGui::Text("Config:");
             ImGui::SameLine();
 
+            // Initialize config name once - only pre-fill for user configs from configs folder
             static bool nameInitialized = false;
-            std::string currentName = state.configName;
-            if (currentName.size() > 5 && currentName.substr(currentName.size() - 5) == ".conf")
-                currentName = currentName.substr(0, currentName.size() - 5);
-            if (!nameInitialized && !currentName.empty())
+            bool isUserConfig = state.configPath.find("/configs/") != std::string::npos;
+            if (!nameInitialized && isUserConfig && !state.configName.empty())
             {
-                strncpy(saveConfigName, currentName.c_str(), sizeof(saveConfigName) - 1);
-                nameInitialized = true;
+                std::string name = state.configName;
+                if (name.ends_with(".conf"))
+                    name = name.substr(0, name.size() - 5);
+                strncpy(saveConfigName, name.c_str(), sizeof(saveConfigName) - 1);
             }
+            nameInitialized = true;
 
             ImGui::SetNextItemWidth(120);
             ImGui::InputText("##configname", saveConfigName, sizeof(saveConfigName));
+
             ImGui::SameLine();
+            ImGui::BeginDisabled(saveConfigName[0] == '\0');
             if (ImGui::Button("Save"))
-            {
-                const char* nameToSave = saveConfigName[0] ? saveConfigName : currentName.c_str();
-                if (nameToSave[0] != '\0')
-                {
-                    std::vector<EffectParam> params;
-                    for (const auto& p : editableParams)
-                    {
-                        EffectParam ep;
-                        ep.effectName = p.effectName;
-                        ep.paramName = p.name;
-                        switch (p.type)
-                        {
-                        case ParamType::Float:
-                            ep.value = std::to_string(p.valueFloat);
-                            break;
-                        case ParamType::Int:
-                            ep.value = std::to_string(p.valueInt);
-                            break;
-                        case ParamType::Bool:
-                            ep.value = p.valueBool ? "true" : "false";
-                            break;
-                        }
-                        params.push_back(ep);
-                    }
-                    ConfigSerializer::saveConfig(nameToSave, selectedEffects, params);
-                }
-            }
+                saveCurrentConfig();
+            ImGui::EndDisabled();
+
             ImGui::SameLine();
             if (ImGui::Button("..."))
-            {
                 inConfigManageMode = true;
-            }
             ImGui::Separator();
 
             ImGui::Text("Effects %s (Home to toggle)", state.effectsEnabled ? "ON" : "OFF");

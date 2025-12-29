@@ -98,6 +98,7 @@ namespace vkBasalt
     private:
         void initVulkanBackend(VkFormat swapchainFormat, uint32_t imageCount);
         void saveToPersistentState();
+        void saveCurrentConfig();
 
         LogicalDevice* pLogicalDevice;
         OverlayPersistentState* pPersistentState;
