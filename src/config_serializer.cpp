@@ -69,7 +69,8 @@ namespace vkBasalt
         const std::string& configName,
         const std::vector<std::string>& effects,
         const std::vector<std::string>& disabledEffects,
-        const std::vector<EffectParam>& params)
+        const std::vector<EffectParam>& params,
+        const std::map<std::string, std::string>& effectPaths)
     {
         std::string configsDir = getConfigsDir();
         if (configsDir.empty())
@@ -93,13 +94,28 @@ namespace vkBasalt
         for (const auto& param : params)
             paramsByEffect[param.effectName].push_back(&param);
 
-        // Write params grouped by effect
+        // Write params grouped by effect (always prefix with effectName.paramName)
+        // Also write effect path before params for each effect
         for (const auto& [effectName, effectParams] : paramsByEffect)
         {
             file << "# " << effectName << "\n";
+            // Write effect path if available (for ReShade effects)
+            auto pathIt = effectPaths.find(effectName);
+            if (pathIt != effectPaths.end() && !pathIt->second.empty())
+                file << effectName << " = " << pathIt->second << "\n";
             for (const auto* param : effectParams)
-                file << param->paramName << " = " << param->value << "\n";
+                file << param->effectName << "." << param->paramName << " = " << param->value << "\n";
             file << "\n";
+        }
+
+        // Write paths for effects that have no params but do have paths
+        for (const auto& [effectName, path] : effectPaths)
+        {
+            if (!path.empty() && paramsByEffect.find(effectName) == paramsByEffect.end())
+            {
+                file << "# " << effectName << "\n";
+                file << effectName << " = " << path << "\n\n";
+            }
         }
 
         // Write effects list (all effects, enabled + disabled)

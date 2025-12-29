@@ -293,7 +293,32 @@ namespace vkBasalt
                 disabledEffects.push_back(effect);
         }
 
-        ConfigSerializer::saveConfig(saveConfigName, selectedEffects, disabledEffects, params);
+        // Collect effect paths/types for serialization
+        // For ReShade: store file path (e.g., "Clarity.2 = /path/to/Clarity.fx")
+        // For built-in: store effect type (e.g., "cas.2 = cas")
+        std::map<std::string, std::string> effectPaths;
+        if (pEffectRegistry)
+        {
+            for (const auto& effectName : selectedEffects)
+            {
+                if (pEffectRegistry->isEffectBuiltIn(effectName))
+                {
+                    // Built-in effect: store the type name
+                    std::string effectType = pEffectRegistry->getEffectType(effectName);
+                    if (!effectType.empty())
+                        effectPaths[effectName] = effectType;
+                }
+                else
+                {
+                    // ReShade effect: store the file path
+                    std::string path = pEffectRegistry->getEffectFilePath(effectName);
+                    if (!path.empty())
+                        effectPaths[effectName] = path;
+                }
+            }
+        }
+
+        ConfigSerializer::saveConfig(saveConfigName, selectedEffects, disabledEffects, params, effectPaths);
     }
 
     void ImGuiOverlay::setSelectedEffects(const std::vector<std::string>& effects,
@@ -483,46 +508,65 @@ namespace vkBasalt
 
         if (inSelectionMode)
         {
-            // Selection mode - show all available effects with checkboxes
-            ImGui::Text("Select Effects (max %zu)", maxEffects);
+            // Add Effects mode - two column layout
+            ImGui::Text("Add Effects (max %zu)", maxEffects);
             ImGui::Separator();
 
-            size_t selectedCount = tempSelectedEffects.size();
-            ImGui::Text("Selected: %zu / %zu", selectedCount, maxEffects);
-            ImGui::Separator();
+            size_t currentCount = selectedEffects.size();
+            size_t pendingCount = pendingAddEffects.size();
+            size_t totalCount = currentCount + pendingCount;
 
-            // Built-in effects (hardcoded)
+            // Built-in effects
             std::vector<std::string> builtinEffects = {"cas", "dls", "fxaa", "smaa", "deband", "lut"};
 
-            // Helper to check if effect is in vector
-            auto containsEffect = [](const std::vector<std::string>& vec, const std::string& name) {
-                return std::find(vec.begin(), vec.end(), name) != vec.end();
+            // Helper to check if instance name is used
+            auto isNameUsed = [&](const std::string& name) {
+                if (std::find(selectedEffects.begin(), selectedEffects.end(), name) != selectedEffects.end())
+                    return true;
+                for (const auto& p : pendingAddEffects)
+                    if (p.first == name)
+                        return true;
+                return false;
             };
 
-            // Helper lambda to render effect checkbox
-            auto renderEffectCheckbox = [&](const std::string& effectName) {
-                bool isSelected = containsEffect(tempSelectedEffects, effectName);
+            // Helper to get next instance name for an effect type
+            auto getNextInstanceName = [&](const std::string& effectType) -> std::string {
+                if (!isNameUsed(effectType))
+                    return effectType;
+                for (int n = 2; n <= 99; n++)
+                {
+                    std::string candidate = effectType + "." + std::to_string(n);
+                    if (!isNameUsed(candidate))
+                        return candidate;
+                }
+                return effectType + ".99";
+            };
 
-                // Disable checkbox if at max and not selected
-                bool atLimit = selectedCount >= maxEffects && !isSelected;
+            // Helper to render add button for an effect
+            auto renderAddButton = [&](const std::string& effectType) {
+                bool atLimit = totalCount >= maxEffects;
                 if (atLimit)
                     ImGui::BeginDisabled();
 
-                if (ImGui::Checkbox(effectName.c_str(), &isSelected))
+                if (ImGui::Button(effectType.c_str(), ImVec2(-1, 0)))
                 {
-                    if (isSelected)
-                        tempSelectedEffects.push_back(effectName);
-                    else
-                        tempSelectedEffects.erase(std::find(tempSelectedEffects.begin(), tempSelectedEffects.end(), effectName));
+                    std::string instanceName = getNextInstanceName(effectType);
+                    pendingAddEffects.push_back({instanceName, effectType});
                 }
 
                 if (atLimit)
                     ImGui::EndDisabled();
             };
 
-            // Scrollable effect list (reserve space for footer buttons)
+            // Two column layout
             float footerHeight = ImGui::GetFrameHeightWithSpacing() + ImGui::GetStyle().ItemSpacing.y;
-            ImGui::BeginChild("SelectionList", ImVec2(0, -footerHeight), false);
+            float contentHeight = -footerHeight;
+            float columnWidth = ImGui::GetContentRegionAvail().x * 0.5f - ImGui::GetStyle().ItemSpacing.x * 0.5f;
+
+            // Left column: Available effects
+            ImGui::BeginChild("EffectList", ImVec2(columnWidth, contentHeight), true);
+            ImGui::Text("Available:");
+            ImGui::Separator();
 
             // Sort effects for each category
             std::vector<std::string> sortedCurrentConfig = state.currentConfigEffects;
@@ -530,56 +574,88 @@ namespace vkBasalt
             std::sort(sortedCurrentConfig.begin(), sortedCurrentConfig.end());
             std::sort(sortedDefaultConfig.begin(), sortedDefaultConfig.end());
 
-            // Category 1: Built-in effects (already sorted in definition)
+            // Built-in effects
             ImGui::Text("Built-in:");
-            for (const auto& effectName : builtinEffects)
-                renderEffectCheckbox(effectName);
+            for (const auto& effectType : builtinEffects)
+                renderAddButton(effectType);
 
-            // Category 2: ReShade effects from current config
+            // ReShade effects from current config
             if (!sortedCurrentConfig.empty())
             {
                 ImGui::Separator();
                 ImGui::Text("ReShade (%s):", state.configName.c_str());
-                for (const auto& effectName : sortedCurrentConfig)
-                    renderEffectCheckbox(effectName);
+                for (const auto& effectType : sortedCurrentConfig)
+                    renderAddButton(effectType);
             }
 
-            // Category 3: ReShade effects from default config (no duplicates)
+            // ReShade effects from default config
             if (!sortedDefaultConfig.empty())
             {
                 ImGui::Separator();
                 ImGui::Text("ReShade (all):");
-                for (const auto& effectName : sortedDefaultConfig)
-                    renderEffectCheckbox(effectName);
+                for (const auto& effectType : sortedDefaultConfig)
+                    renderAddButton(effectType);
             }
+
+            ImGui::EndChild();
+
+            ImGui::SameLine();
+
+            // Right column: Pending effects
+            ImGui::BeginChild("PendingList", ImVec2(columnWidth, contentHeight), true);
+            ImGui::Text("Will add (%zu):", pendingCount);
+            ImGui::Separator();
+
+            for (size_t i = 0; i < pendingAddEffects.size(); i++)
+            {
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::SmallButton("x"))
+                {
+                    pendingAddEffects.erase(pendingAddEffects.begin() + i);
+                    ImGui::PopID();
+                    continue;
+                }
+                ImGui::SameLine();
+                // Show instanceName (effectType) if they differ
+                const auto& [instanceName, effectType] = pendingAddEffects[i];
+                if (instanceName != effectType)
+                    ImGui::Text("%s (%s)", instanceName.c_str(), effectType.c_str());
+                else
+                    ImGui::Text("%s", instanceName.c_str());
+                ImGui::PopID();
+            }
+
+            if (pendingAddEffects.empty())
+                ImGui::TextDisabled("Click effects to add...");
 
             ImGui::EndChild();
 
             ImGui::Separator();
 
-            if (ImGui::Button("OK"))
+            if (ImGui::Button("Done"))
             {
-                // Apply selection
-                selectedEffects = tempSelectedEffects;
-                // Initialize enabled states for new effects in registry (default to enabled)
-                if (pEffectRegistry)
+                // Apply pending effects
+                for (const auto& [instanceName, effectType] : pendingAddEffects)
                 {
-                    for (const auto& effectName : selectedEffects)
+                    selectedEffects.push_back(instanceName);
+                    if (pEffectRegistry)
                     {
-                        if (!pEffectRegistry->hasEffect(effectName))
-                        {
-                            pEffectRegistry->ensureEffect(effectName);
-                            pEffectRegistry->setEffectEnabled(effectName, true);
-                        }
+                        pEffectRegistry->ensureEffect(instanceName, effectType);
+                        pEffectRegistry->setEffectEnabled(instanceName, true);
                     }
                 }
+                if (!pendingAddEffects.empty())
+                {
+                    applyRequested = true;
+                    saveToPersistentState();
+                }
+                pendingAddEffects.clear();
                 inSelectionMode = false;
-                applyRequested = true;  // Trigger reload with new effects
-                saveToPersistentState();
             }
             ImGui::SameLine();
             if (ImGui::Button("Cancel"))
             {
+                pendingAddEffects.clear();
                 inSelectionMode = false;
             }
         }
@@ -680,11 +756,9 @@ namespace vkBasalt
             ImGui::TextDisabled("(Home)");
             ImGui::Separator();
 
-            // Select Effects button
-            if (ImGui::Button("Select Effects..."))
+            // Add Effects button
+            if (ImGui::Button("Add Effects..."))
             {
-                // Enter selection mode, copy current selection to temp
-                tempSelectedEffects = selectedEffects;
                 inSelectionMode = true;
             }
             ImGui::Separator();

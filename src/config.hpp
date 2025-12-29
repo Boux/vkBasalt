@@ -50,6 +50,13 @@ namespace vkBasalt
             return defaultValue;
         }
 
+        // Effect parameter lookup: looks for "effectName.paramName"
+        template<typename T>
+        T getInstanceOption(const std::string& effectName, const std::string& paramName, const T& defaultValue = {})
+        {
+            return getOption<T>(effectName + "." + paramName, defaultValue);
+        }
+
         // In-memory override support (does not modify config file)
         void setOverride(const std::string& option, const std::string& value);
         void clearOverrides();

@@ -35,7 +35,8 @@ namespace vkBasalt
                                  std::vector<VkImage> inputImages,
                                  std::vector<VkImage> outputImages,
                                  Config*              pConfig,
-                                 std::string          effectName)
+                                 std::string          effectName,
+                                 std::string          effectPath)
     {
         Logger::debug("in creating ReshadeEffect");
 
@@ -45,6 +46,7 @@ namespace vkBasalt
         this->outputImages     = outputImages;
         this->pConfig          = pConfig;
         this->effectName       = effectName;
+        this->effectPath       = effectPath;
         inputOutputFormatUNORM = convertToUNORM(format);
         inputOutputFormatSRGB  = convertToSRGB(format);
 
@@ -568,7 +570,8 @@ namespace vkBasalt
             {
                 if (!opt.name.empty())
                 {
-                    std::string val = pConfig->getOption<std::string>(opt.name);
+                    // Use instance-prefixed lookup (e.g., "4xBRZ.coef" not just "coef")
+                    std::string val = pConfig->getInstanceOption<std::string>(effectName, opt.name);
                     if (!val.empty())
                     {
                         std::variant<int32_t, uint32_t, float> convertedValue;
@@ -576,25 +579,25 @@ namespace vkBasalt
                         switch (opt.type.base)
                         {
                             case reshadefx::type::t_bool:
-                                convertedValue = (int32_t) pConfig->getOption<bool>(opt.name);
+                                convertedValue = (int32_t) pConfig->getInstanceOption<bool>(effectName, opt.name);
                                 specData.resize(offset + sizeof(VkBool32));
                                 std::memcpy(specData.data() + offset, &convertedValue, sizeof(VkBool32));
                                 specMapEntrys.push_back({specId, offset, sizeof(VkBool32)});
                                 break;
                             case reshadefx::type::t_int:
-                                convertedValue = pConfig->getOption<int32_t>(opt.name);
+                                convertedValue = pConfig->getInstanceOption<int32_t>(effectName, opt.name);
                                 specData.resize(offset + sizeof(int32_t));
                                 std::memcpy(specData.data() + offset, &convertedValue, sizeof(int32_t));
                                 specMapEntrys.push_back({specId, offset, sizeof(int32_t)});
                                 break;
                             case reshadefx::type::t_uint:
-                                convertedValue = (uint32_t) pConfig->getOption<int32_t>(opt.name);
+                                convertedValue = (uint32_t) pConfig->getInstanceOption<int32_t>(effectName, opt.name);
                                 specData.resize(offset + sizeof(uint32_t));
                                 std::memcpy(specData.data() + offset, &convertedValue, sizeof(uint32_t));
                                 specMapEntrys.push_back({specId, offset, sizeof(uint32_t)});
                                 break;
                             case reshadefx::type::t_float:
-                                convertedValue = pConfig->getOption<float>(opt.name);
+                                convertedValue = pConfig->getInstanceOption<float>(effectName, opt.name);
                                 specData.resize(offset + sizeof(float));
                                 std::memcpy(specData.data() + offset, &convertedValue, sizeof(float));
                                 specMapEntrys.push_back({specId, offset, sizeof(float)});
@@ -1245,19 +1248,23 @@ namespace vkBasalt
         std::string includePath = pConfig->getOption<std::string>("reshadeIncludePath");
         preprocessor.add_include_path(includePath);
 
-        // First try to get effect path from config, otherwise construct from includePath + effectName
-        std::string effectPath = pConfig->getOption<std::string>(effectName, "");
-        if (effectPath.empty() && !includePath.empty())
+        // Use provided effectPath, or try to find it from config/includePath
+        std::string shaderPath = this->effectPath;
+        if (shaderPath.empty())
         {
-            // Try with .fx extension first, then without
-            effectPath = includePath + "/" + effectName + ".fx";
-            if (!std::filesystem::exists(effectPath))
-                effectPath = includePath + "/" + effectName;
+            shaderPath = pConfig->getOption<std::string>(effectName, "");
+            if (shaderPath.empty() && !includePath.empty())
+            {
+                // Try with .fx extension first, then without
+                shaderPath = includePath + "/" + effectName + ".fx";
+                if (!std::filesystem::exists(shaderPath))
+                    shaderPath = includePath + "/" + effectName;
+            }
         }
 
-        if (effectPath.empty() || !preprocessor.append_file(effectPath))
+        if (shaderPath.empty() || !preprocessor.append_file(shaderPath))
         {
-            Logger::err("failed to load shader file: " + effectPath);
+            Logger::err("failed to load shader file: " + shaderPath);
             Logger::err("Does the filepath exist and does it not include spaces?");
         }
 

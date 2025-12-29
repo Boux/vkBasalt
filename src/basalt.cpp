@@ -347,45 +347,53 @@ namespace vkBasalt
                 continue;
             }
 
-            if (effectStrings[i] == std::string("fxaa"))
+            // Use effectType from registry to handle instance names like "cas.2"
+            std::string effectType = effectRegistry.getEffectType(effectStrings[i]);
+            if (effectType.empty())
+                effectType = effectStrings[i];  // Fallback to effect name if no type stored
+
+            if (effectType == std::string("fxaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new FxaaEffect(pLogicalDevice, srgbFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("cas"))
+            else if (effectType == std::string("cas"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new CasEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("deband"))
+            else if (effectType == std::string("deband"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DebandEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("smaa"))
+            else if (effectType == std::string("smaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new SmaaEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("lut"))
+            else if (effectType == std::string("lut"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new LutEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("dls"))
+            else if (effectType == std::string("dls"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DlsEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
             else
             {
+                // Get effect file path from registry (supports instance names like "Cartoon.2")
+                std::string effectPath = effectRegistry.getEffectFilePath(effectStrings[i]);
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
                                                                                                pLogicalSwapchain->format,
                                                                                                pLogicalSwapchain->imageExtent,
                                                                                                firstImages,
                                                                                                secondImages,
                                                                                                pConfig,
-                                                                                               effectStrings[i])));
+                                                                                               effectStrings[i],
+                                                                                               effectPath)));
             }
         }
 
@@ -820,6 +828,16 @@ namespace vkBasalt
         VkFormat unormFormat = convertToUNORM(pLogicalSwapchain->format);
         VkFormat srgbFormat  = convertToSRGB(pLogicalSwapchain->format);
 
+        // If no effects (all disabled), add pass-through so commandBuffersEffect still works
+        if (effectStrings.empty())
+        {
+            std::vector<VkImage> firstImages(pLogicalSwapchain->fakeImages.begin(),
+                                             pLogicalSwapchain->fakeImages.begin() + pLogicalSwapchain->imageCount);
+            pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new TransferEffect(
+                pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent,
+                firstImages, pLogicalSwapchain->images, pConfig.get())));
+        }
+
         for (uint32_t i = 0; i < effectStrings.size(); i++)
         {
             Logger::debug("current effectString " + effectStrings[i]);
@@ -842,37 +860,43 @@ namespace vkBasalt
                 Logger::debug("not using swapchain images as second images");
             }
             Logger::debug(std::to_string(secondImages.size()) + " images in secondImages");
-            if (effectStrings[i] == std::string("fxaa"))
+
+            // Use effectType from registry to handle instance names like "cas.2"
+            std::string effectType = effectRegistry.getEffectType(effectStrings[i]);
+            if (effectType.empty())
+                effectType = effectStrings[i];  // Fallback to effect name if no type stored
+
+            if (effectType == std::string("fxaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new FxaaEffect(pLogicalDevice, srgbFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created FxaaEffect");
             }
-            else if (effectStrings[i] == std::string("cas"))
+            else if (effectType == std::string("cas"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new CasEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created CasEffect");
             }
-            else if (effectStrings[i] == std::string("deband"))
+            else if (effectType == std::string("deband"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DebandEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created DebandEffect");
             }
-            else if (effectStrings[i] == std::string("smaa"))
+            else if (effectType == std::string("smaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new SmaaEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created SmaaEffect");
             }
-            else if (effectStrings[i] == std::string("lut"))
+            else if (effectType == std::string("lut"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new LutEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created LutEffect");
             }
-            else if (effectStrings[i] == std::string("dls"))
+            else if (effectType == std::string("dls"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DlsEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
@@ -880,13 +904,16 @@ namespace vkBasalt
             }
             else
             {
+                // Get effect file path from registry (supports instance names like "Cartoon.2")
+                std::string effectPath = effectRegistry.getEffectFilePath(effectStrings[i]);
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
                                                                                                pLogicalSwapchain->format,
                                                                                                pLogicalSwapchain->imageExtent,
                                                                                                firstImages,
                                                                                                secondImages,
                                                                                                pConfig.get(),
-                                                                                               effectStrings[i])));
+                                                                                               effectStrings[i],
+                                                                                               effectPath)));
                 Logger::debug("created ReshadeEffect");
             }
         }
@@ -1076,7 +1103,8 @@ namespace vkBasalt
                         valueStr = param.valueBool ? "true" : "false";
                         break;
                     }
-                    pConfig->setOverride(param.name, valueStr);
+                    // Use prefixed name (e.g., "4xBRZ.coef" not just "coef")
+                    pConfig->setOverride(param.effectName + "." + param.name, valueStr);
                 }
             }
 

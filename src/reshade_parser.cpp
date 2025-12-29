@@ -115,29 +115,25 @@ namespace vkBasalt
             auto labelIt = findAnnotation(spec.annotations, "ui_label");
             p.label = (labelIt != spec.annotations.end()) ? labelIt->value.string_data : spec.name;
 
-            // Check config for value
-            std::string configVal = pConfig->getOption<std::string>(spec.name);
-            bool hasConfig = !configVal.empty();
-
-            // Type and value
+            // Type and value (use effectName.paramName lookup)
             if (spec.type.is_floating_point())
             {
                 p.type = ParamType::Float;
                 p.defaultFloat = spec.initializer_value.as_float[0];
-                p.valueFloat = hasConfig ? pConfig->getOption<float>(spec.name) : p.defaultFloat;
+                p.valueFloat = pConfig->getInstanceOption<float>(effectName, spec.name, p.defaultFloat);
                 applyFloatRange(p, spec.annotations);
             }
             else if (spec.type.is_boolean())
             {
                 p.type = ParamType::Bool;
                 p.defaultBool = (spec.initializer_value.as_uint[0] != 0);
-                p.valueBool = hasConfig ? pConfig->getOption<bool>(spec.name) : p.defaultBool;
+                p.valueBool = pConfig->getInstanceOption<bool>(effectName, spec.name, p.defaultBool);
             }
             else if (spec.type.is_integral())
             {
                 p.type = ParamType::Int;
                 p.defaultInt = spec.initializer_value.as_int[0];
-                p.valueInt = hasConfig ? pConfig->getOption<int32_t>(spec.name) : p.defaultInt;
+                p.valueInt = pConfig->getInstanceOption<int32_t>(effectName, spec.name, p.defaultInt);
                 applyIntRange(p, spec.annotations);
             }
 
