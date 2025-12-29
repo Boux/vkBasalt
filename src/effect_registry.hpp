@@ -63,6 +63,12 @@ namespace vkBasalt
 
         // Initialize ReShade effect config
         void initReshadeEffect(const std::string& name, const std::string& path);
+
+        // Internal helpers (assume mutex is held)
+        EffectConfig* findEffect(const std::string& effectName);
+        const EffectConfig* findEffect(const std::string& effectName) const;
+        EffectParameter* findParam(EffectConfig& effect, const std::string& paramName);
+        const EffectParameter* findParam(const EffectConfig& effect, const std::string& paramName) const;
     };
 
 } // namespace vkBasalt
