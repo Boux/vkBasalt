@@ -9,6 +9,7 @@
 #include <cmath>
 
 #include "imgui/imgui.h"
+#include "imgui/imgui_internal.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
 
 namespace vkBasalt
@@ -767,6 +768,12 @@ namespace vkBasalt
                                     param.valueFloat = std::round(param.valueFloat / param.step) * param.step;
                                 changed = true;
                             }
+                            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                            {
+                                param.valueFloat = param.defaultFloat;
+                                changed = true;
+                                ImGui::ClearActiveID();
+                            }
                             if (!param.tooltip.empty() && ImGui::IsItemHovered())
                                 ImGui::SetTooltip("%s", param.tooltip.c_str());
                             break;
@@ -795,6 +802,12 @@ namespace vkBasalt
                                     }
                                     changed = true;
                                 }
+                            }
+                            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                            {
+                                param.valueInt = param.defaultInt;
+                                changed = true;
+                                ImGui::ClearActiveID();
                             }
                             if (!param.tooltip.empty() && ImGui::IsItemHovered())
                                 ImGui::SetTooltip("%s", param.tooltip.c_str());
