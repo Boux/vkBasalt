@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <map>
 #include <memory>
 #include <mutex>
 
@@ -31,6 +32,12 @@ namespace vkBasalt
 
         // Toggle effect enabled state
         void setEffectEnabled(const std::string& effectName, bool enabled);
+
+        // Get enabled state for a specific effect
+        bool isEffectEnabled(const std::string& effectName) const;
+
+        // Get all effect enabled states as a map
+        std::map<std::string, bool> getEffectEnabledStates() const;
 
         // Update a parameter value (UI -> registry)
         void setParameterValue(const std::string& effectName, const std::string& paramName, float value);

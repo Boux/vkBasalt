@@ -1,4 +1,5 @@
 #include "imgui_overlay.hpp"
+#include "effect_registry.hpp"
 #include "logger.hpp"
 #include "mouse_input.hpp"
 #include "keyboard_input.hpp"
@@ -124,7 +125,7 @@ namespace vkBasalt
         if (pPersistentState && pPersistentState->initialized)
         {
             selectedEffects = pPersistentState->selectedEffects;
-            effectEnabledStates = pPersistentState->effectEnabledStates;
+            // Note: effectEnabledStates now live in EffectRegistry (single source of truth)
             editableParams = pPersistentState->editableParams;
             autoApply = pPersistentState->autoApply;
             visible = pPersistentState->visible;
@@ -164,7 +165,7 @@ namespace vkBasalt
             return;
 
         pPersistentState->selectedEffects = selectedEffects;
-        pPersistentState->effectEnabledStates = effectEnabledStates;
+        // Note: effectEnabledStates now live in EffectRegistry (single source of truth)
         pPersistentState->editableParams = editableParams;
         pPersistentState->autoApply = autoApply;
         pPersistentState->visible = visible;
@@ -181,20 +182,26 @@ namespace vkBasalt
             for (const auto& effectName : state.effectNames)
                 selectedEffects.push_back(effectName);
 
-            // Set enabled states from config's disabledEffects
-            for (const auto& effectName : selectedEffects)
+            // Set enabled states from config's disabledEffects (via registry)
+            if (pEffectRegistry)
             {
-                bool isDisabled = std::find(state.disabledEffects.begin(), state.disabledEffects.end(), effectName)
-                                  != state.disabledEffects.end();
-                effectEnabledStates[effectName] = !isDisabled;
+                for (const auto& effectName : selectedEffects)
+                {
+                    bool isDisabled = std::find(state.disabledEffects.begin(), state.disabledEffects.end(), effectName)
+                                      != state.disabledEffects.end();
+                    pEffectRegistry->setEffectEnabled(effectName, !isDisabled);
+                }
             }
         }
 
-        // Initialize enabled state for new effects (default to enabled)
-        for (const auto& effectName : selectedEffects)
+        // Initialize enabled state for new effects (default to enabled, via registry)
+        if (pEffectRegistry)
         {
-            if (effectEnabledStates.find(effectName) == effectEnabledStates.end())
-                effectEnabledStates[effectName] = true;
+            for (const auto& effectName : selectedEffects)
+            {
+                if (!pEffectRegistry->hasEffect(effectName))
+                    pEffectRegistry->ensureEffect(effectName);
+            }
         }
 
         // Merge new parameters with existing ones
@@ -239,10 +246,10 @@ namespace vkBasalt
         std::vector<std::string> activeEffects;
         for (const auto& effectName : selectedEffects)
         {
-            auto it = effectEnabledStates.find(effectName);
-            if (it == effectEnabledStates.end() || !it->second)
-                continue;
-            activeEffects.push_back(effectName);
+            // Use registry as single source of truth for enabled state
+            bool enabled = pEffectRegistry ? pEffectRegistry->isEffectEnabled(effectName) : true;
+            if (enabled)
+                activeEffects.push_back(effectName);
         }
         return activeEffects;
     }
@@ -276,12 +283,12 @@ namespace vkBasalt
             params.push_back(ep);
         }
 
-        // Collect disabled effects
+        // Collect disabled effects (from registry)
         std::vector<std::string> disabledEffects;
         for (const auto& effect : selectedEffects)
         {
-            auto it = effectEnabledStates.find(effect);
-            if (it != effectEnabledStates.end() && !it->second)
+            bool enabled = pEffectRegistry ? pEffectRegistry->isEffectEnabled(effect) : true;
+            if (!enabled)
                 disabledEffects.push_back(effect);
         }
 
@@ -296,10 +303,19 @@ namespace vkBasalt
         // Build set of disabled effects for quick lookup
         std::set<std::string> disabledSet(disabledEffects.begin(), disabledEffects.end());
 
-        // Set enabled states: disabled if in disabledEffects, enabled otherwise
-        effectEnabledStates.clear();
-        for (const auto& effectName : selectedEffects)
-            effectEnabledStates[effectName] = (disabledSet.find(effectName) == disabledSet.end());
+        // Set enabled states in registry: disabled if in disabledEffects, enabled otherwise
+        if (pEffectRegistry)
+        {
+            for (const auto& effectName : selectedEffects)
+            {
+                bool enabled = (disabledSet.find(effectName) == disabledSet.end());
+                pEffectRegistry->setEffectEnabled(effectName, enabled);
+            }
+        }
+
+        // Clear editable params so they get reloaded from the new config
+        // (otherwise updateState() would preserve old values)
+        editableParams.clear();
 
         saveToPersistentState();
     }
@@ -544,11 +560,17 @@ namespace vkBasalt
             {
                 // Apply selection
                 selectedEffects = tempSelectedEffects;
-                // Initialize enabled states for new effects
-                for (const auto& effectName : selectedEffects)
+                // Initialize enabled states for new effects in registry (default to enabled)
+                if (pEffectRegistry)
                 {
-                    if (effectEnabledStates.find(effectName) == effectEnabledStates.end())
-                        effectEnabledStates[effectName] = true;
+                    for (const auto& effectName : selectedEffects)
+                    {
+                        if (!pEffectRegistry->hasEffect(effectName))
+                        {
+                            pEffectRegistry->ensureEffect(effectName);
+                            pEffectRegistry->setEffectEnabled(effectName, true);
+                        }
+                    }
                 }
                 inSelectionMode = false;
                 applyRequested = true;  // Trigger reload with new effects
@@ -709,10 +731,12 @@ namespace vkBasalt
                     ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
                 ImGui::SameLine();
 
-                // Checkbox to enable/disable effect
-                bool& effectEnabled = effectEnabledStates[effectName];
+                // Checkbox to enable/disable effect (read/write via registry)
+                bool effectEnabled = pEffectRegistry ? pEffectRegistry->isEffectEnabled(effectName) : true;
                 if (ImGui::Checkbox("##enabled", &effectEnabled))
                 {
+                    if (pEffectRegistry)
+                        pEffectRegistry->setEffectEnabled(effectName, effectEnabled);
                     changedThisFrame = true;
                     paramsDirty = true;
                     lastChangeTime = std::chrono::steady_clock::now();
@@ -823,31 +847,24 @@ namespace vkBasalt
             if (autoApply != prevAutoApply)
                 saveToPersistentState();
             ImGui::SameLine(ImGui::GetWindowWidth() - 60);
-            if (autoApply)
-            {
-                ImGui::BeginDisabled();
-                ImGui::Button("Apply");
-                ImGui::EndDisabled();
 
-                // Auto-apply with debounce (200ms after last change)
-                // Only apply if no changes happened this frame to ensure latest value
-                if (paramsDirty && !changedThisFrame)
-                {
-                    auto now = std::chrono::steady_clock::now();
-                    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastChangeTime).count();
-                    if (elapsed >= 200)
-                    {
-                        applyRequested = true;
-                        paramsDirty = false;
-                        saveToPersistentState();
-                    }
-                }
-            }
-            else
+            // Apply button is always clickable
+            if (ImGui::Button("Apply"))
             {
-                if (ImGui::Button("Apply"))
+                applyRequested = true;
+                paramsDirty = false;
+                saveToPersistentState();
+            }
+
+            // Auto-apply with debounce (200ms after last change)
+            if (autoApply && paramsDirty && !changedThisFrame)
+            {
+                auto now = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastChangeTime).count();
+                if (elapsed >= 200)
                 {
                     applyRequested = true;
+                    paramsDirty = false;
                     saveToPersistentState();
                 }
             }

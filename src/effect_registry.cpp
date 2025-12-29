@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <set>
 
 #include "reshade_parser.hpp"
 #include "logger.hpp"
@@ -95,23 +96,31 @@ namespace vkBasalt
         effects.clear();
 
         std::vector<std::string> effectNames = pConfig->getOption<std::vector<std::string>>("effects");
+        std::vector<std::string> disabledEffects = pConfig->getOption<std::vector<std::string>>("disabledEffects");
+
+        // Build set for quick lookup
+        std::set<std::string> disabledSet(disabledEffects.begin(), disabledEffects.end());
 
         for (const auto& name : effectNames)
         {
             if (isBuiltInEffect(name))
             {
                 initBuiltInEffect(name);
-                continue;
             }
-
-            std::string effectPath = findEffectPath(name, pConfig);
-            if (effectPath.empty())
+            else
             {
-                Logger::err("EffectRegistry: could not find effect file for: " + name);
-                continue;
+                std::string effectPath = findEffectPath(name, pConfig);
+                if (effectPath.empty())
+                {
+                    Logger::err("EffectRegistry: could not find effect file for: " + name);
+                    continue;
+                }
+                initReshadeEffect(name, effectPath);
             }
 
-            initReshadeEffect(name, effectPath);
+            // Set enabled state based on disabledEffects list
+            if (!effects.empty() && disabledSet.count(name))
+                effects.back().enabled = false;
         }
 
         Logger::debug("EffectRegistry: initialized " + std::to_string(effects.size()) + " effects");
@@ -273,6 +282,24 @@ namespace vkBasalt
         EffectConfig* effect = findEffect(effectName);
         if (effect)
             effect->enabled = enabled;
+    }
+
+    bool EffectRegistry::isEffectEnabled(const std::string& effectName) const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+
+        const EffectConfig* effect = findEffect(effectName);
+        return effect ? effect->enabled : false;
+    }
+
+    std::map<std::string, bool> EffectRegistry::getEffectEnabledStates() const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+
+        std::map<std::string, bool> states;
+        for (const auto& effect : effects)
+            states[effect.name] = effect.enabled;
+        return states;
     }
 
     void EffectRegistry::setParameterValue(const std::string& effectName, const std::string& paramName, float value)

@@ -166,10 +166,20 @@ namespace vkBasalt
     // Switch to a new config (called from overlay)
     void switchConfig(const std::string& configPath)
     {
+        Logger::info("switching to config: " + configPath);
+
+        // Create new config from file (starts with no overrides)
         pConfig = std::make_shared<Config>(configPath);
         pConfig->setFallback(pBaseConfig.get());
-        effectRegistry.initialize(pConfig.get());  // Re-initialize registry with new config
+
+        // Also clear any overrides on the base config to avoid stale values
+        if (pBaseConfig)
+            pBaseConfig->clearOverrides();
+
+        // Re-initialize registry with new config
+        effectRegistry.initialize(pConfig.get());
         cachedParams.dirty = true;
+
         Logger::info("switched to config: " + configPath);
     }
 
@@ -266,7 +276,6 @@ namespace vkBasalt
 
     // Helper function to reload effects for a swapchain (for hot-reload)
     void reloadEffectsForSwapchain(LogicalSwapchain* pLogicalSwapchain, Config* pConfig,
-                                   const std::map<std::string, bool>& effectEnabledStates = {},
                                    const std::vector<std::string>& activeEffects = {})
     {
         LogicalDevice* pLogicalDevice = pLogicalSwapchain->pLogicalDevice;
@@ -328,8 +337,8 @@ namespace vkBasalt
             }
 
             // Check if effect is disabled - if so, use TransferEffect to pass through
-            auto enabledIt = effectEnabledStates.find(effectStrings[i]);
-            bool effectEnabled = (enabledIt == effectEnabledStates.end()) || enabledIt->second;
+            // Use global effectRegistry as single source of truth
+            bool effectEnabled = effectRegistry.isEffectEnabled(effectStrings[i]);
             if (!effectEnabled)
             {
                 Logger::debug("effect disabled, using pass-through: " + effectStrings[i]);
@@ -949,6 +958,8 @@ namespace vkBasalt
             pLogicalDevice->imguiOverlay = std::make_unique<ImGuiOverlay>(
                 pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageCount,
                 pLogicalDevice->overlayPersistentState.get());
+            // Set the effect registry pointer (single source of truth for enabled states)
+            pLogicalDevice->imguiOverlay->setEffectRegistry(&effectRegistry);
         }
 
         *pCount = std::min<uint32_t>(*pCount, pLogicalSwapchain->imageCount);
@@ -1032,7 +1043,6 @@ namespace vkBasalt
         }
 
         // Check for Apply button press in overlay (overlay is at device level)
-        std::map<std::string, bool> effectEnabledStates;
         LogicalDevice* pLogicalDevice = deviceMap[GetKey(queue)].get();
 
         // Toggle effects on/off via overlay checkbox
@@ -1044,26 +1054,33 @@ namespace vkBasalt
 
         if (pLogicalDevice->imguiOverlay && pLogicalDevice->imguiOverlay->hasModifiedParams())
         {
-            Logger::info("Applying modified parameters from overlay");
-            auto params = pLogicalDevice->imguiOverlay->getModifiedParams();
-            for (const auto& param : params)
+            // If we're loading a new config, don't apply old params - just trigger reload
+            bool loadingNewConfig = pLogicalDevice->imguiOverlay->hasPendingConfig();
+
+            if (!loadingNewConfig)
             {
-                std::string valueStr;
-                switch (param.type)
+                Logger::info("Applying modified parameters from overlay");
+                auto params = pLogicalDevice->imguiOverlay->getModifiedParams();
+                for (const auto& param : params)
                 {
-                case ParamType::Float:
-                    valueStr = std::to_string(param.valueFloat);
-                    break;
-                case ParamType::Int:
-                    valueStr = std::to_string(param.valueInt);
-                    break;
-                case ParamType::Bool:
-                    valueStr = param.valueBool ? "true" : "false";
-                    break;
+                    std::string valueStr;
+                    switch (param.type)
+                    {
+                    case ParamType::Float:
+                        valueStr = std::to_string(param.valueFloat);
+                        break;
+                    case ParamType::Int:
+                        valueStr = std::to_string(param.valueInt);
+                        break;
+                    case ParamType::Bool:
+                        valueStr = param.valueBool ? "true" : "false";
+                        break;
+                    }
+                    pConfig->setOverride(param.name, valueStr);
                 }
-                pConfig->setOverride(param.name, valueStr);
             }
-            effectEnabledStates = pLogicalDevice->imguiOverlay->getEffectEnabledStates();
+
+            // Effect enabled states are now in the global effectRegistry (single source of truth)
             pLogicalDevice->imguiOverlay->clearApplyRequest();
             shouldReload = true;
         }
@@ -1082,6 +1099,7 @@ namespace vkBasalt
                 std::vector<std::string> disabledEffects = pConfig->getOption<std::vector<std::string>>("disabledEffects", {});
                 pLogicalDevice->imguiOverlay->setSelectedEffects(newEffects, disabledEffects);
                 pLogicalDevice->imguiOverlay->clearPendingConfig();
+                // Effect enabled states are updated in registry by setSelectedEffects()
             }
             else
             {
@@ -1103,7 +1121,7 @@ namespace vkBasalt
                 LogicalSwapchain* pLogicalSwapchain = swapchainPair.second.get();
                 if (pLogicalSwapchain->fakeImages.size() > 0)
                 {
-                    reloadEffectsForSwapchain(pLogicalSwapchain, pConfig.get(), effectEnabledStates, activeEffects);
+                    reloadEffectsForSwapchain(pLogicalSwapchain, pConfig.get(), activeEffects);
                 }
             }
         }
@@ -1121,8 +1139,8 @@ namespace vkBasalt
             {
                 if (pSwapchain->fakeImages.empty() || !pLogicalDevice->overlayPersistentState)
                     continue;
+                // Effect enabled states are read from global effectRegistry
                 reloadEffectsForSwapchain(pSwapchain.get(), pConfig.get(),
-                    pLogicalDevice->overlayPersistentState->effectEnabledStates,
                     pLogicalDevice->overlayPersistentState->selectedEffects);
             }
         }

@@ -14,6 +14,7 @@
 namespace vkBasalt
 {
     class Effect;
+    class EffectRegistry;
 
     enum class ParamType
     {
@@ -60,7 +61,6 @@ namespace vkBasalt
     struct OverlayPersistentState
     {
         std::vector<std::string> selectedEffects;
-        std::map<std::string, bool> effectEnabledStates;
         std::vector<EffectParameter> editableParams;
         bool autoApply = true;
         bool visible = false;
@@ -92,8 +92,8 @@ namespace vkBasalt
         bool hasToggleEffectsRequest() const { return toggleEffectsRequested; }
         void clearToggleEffectsRequest() { toggleEffectsRequested = false; }
 
-        // Returns map of effect name -> enabled state
-        const std::map<std::string, bool>& getEffectEnabledStates() const { return effectEnabledStates; }
+        // Set the effect registry (single source of truth for enabled states)
+        void setEffectRegistry(EffectRegistry* registry) { pEffectRegistry = registry; }
 
         // Returns list of effects that should be active (enabled, for reloading)
         std::vector<std::string> getActiveEffects() const;
@@ -115,6 +115,7 @@ namespace vkBasalt
 
         LogicalDevice* pLogicalDevice;
         OverlayPersistentState* pPersistentState;
+        EffectRegistry* pEffectRegistry = nullptr;  // Single source of truth for enabled states
         VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
         VkRenderPass renderPass = VK_NULL_HANDLE;
         VkCommandPool commandPool = VK_NULL_HANDLE;
@@ -123,7 +124,6 @@ namespace vkBasalt
         uint32_t imageCount = 0;
         OverlayState state;
         std::vector<EffectParameter> editableParams;  // Persistent editable values
-        std::map<std::string, bool> effectEnabledStates;  // Effect name -> enabled
         std::vector<std::string> selectedEffects;           // Effects user has selected (ordered)
         std::vector<std::string> tempSelectedEffects;       // Temporary selection while in selection mode
         bool inSelectionMode = false;
