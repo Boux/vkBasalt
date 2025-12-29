@@ -2,6 +2,7 @@
 
 #include <mutex>
 #include <map>
+#include <set>
 #include <chrono>
 #include <vector>
 #include <unordered_map>
@@ -10,6 +11,7 @@
 #include <memory>
 #include <cstring>
 #include <filesystem>
+#include <algorithm>
 
 #include "util.hpp"
 #include "keyboard_input.hpp"
@@ -184,12 +186,16 @@ namespace vkBasalt
         defaultConfigEffects.clear();
         effectPaths.clear();
 
+        // Collect all known effect names (to avoid duplicates)
+        std::set<std::string> knownEffects;
+
         // Get effect definitions from current config
         auto configEffects = pConfig->getEffectDefinitions();
         for (const auto& [name, path] : configEffects)
         {
             currentConfigEffects.push_back(name);
             effectPaths[name] = path;
+            knownEffects.insert(name);
         }
 
         // Also load effect definitions from the base config file (vkBasalt.conf)
@@ -198,12 +204,49 @@ namespace vkBasalt
             auto defaultEffects = pBaseConfig->getEffectDefinitions();
             for (const auto& [name, path] : defaultEffects)
             {
-                // Only add if not already in current config
-                if (std::find(currentConfigEffects.begin(), currentConfigEffects.end(), name) == currentConfigEffects.end())
+                if (knownEffects.find(name) == knownEffects.end())
                 {
                     defaultConfigEffects.push_back(name);
                     effectPaths[name] = path;
+                    knownEffects.insert(name);
                 }
+            }
+        }
+
+        // Auto-discover .fx files in reshadeIncludePath
+        std::string includePath = pBaseConfig ? pBaseConfig->getOption<std::string>("reshadeIncludePath", "")
+                                              : pConfig->getOption<std::string>("reshadeIncludePath", "");
+        if (!includePath.empty())
+        {
+            try
+            {
+                for (const auto& entry : std::filesystem::directory_iterator(includePath))
+                {
+                    if (!entry.is_regular_file())
+                        continue;
+
+                    std::string filename = entry.path().filename().string();
+                    if (filename.size() < 4 || filename.substr(filename.size() - 3) != ".fx")
+                        continue;
+
+                    // Effect name is filename without .fx extension
+                    std::string effectName = filename.substr(0, filename.size() - 3);
+
+                    // Skip if already known (from config definitions)
+                    if (knownEffects.find(effectName) != knownEffects.end())
+                        continue;
+
+                    defaultConfigEffects.push_back(effectName);
+                    effectPaths[effectName] = entry.path().string();
+                    knownEffects.insert(effectName);
+                }
+
+                // Sort discovered effects alphabetically
+                std::sort(defaultConfigEffects.begin(), defaultConfigEffects.end());
+            }
+            catch (const std::filesystem::filesystem_error& e)
+            {
+                Logger::warn("failed to scan reshadeIncludePath: " + std::string(e.what()));
             }
         }
 

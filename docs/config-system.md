@@ -135,6 +135,40 @@ void switchConfig(const std::string& configPath)
 }
 ```
 
+## Effect Discovery
+
+Effects available in the overlay come from three sources:
+
+### 1. Config Definitions
+
+Effects explicitly defined in config files (key = path.fx):
+
+```ini
+Clarity = /path/to/Clarity.fx
+SMAA = /path/to/SMAA.fx
+```
+
+### 2. Base Config Definitions
+
+Effects defined in vkBasalt.conf that aren't in the current config.
+
+### 3. Auto-Discovery
+
+The overlay automatically scans `reshadeIncludePath` for .fx files:
+
+```
+reshadeIncludePath = /home/user/.config/vkBasalt/reshade/Shaders
+```
+
+All .fx files in this directory are available as effects, using the filename (without .fx) as the effect name.
+
+**Discovery order:**
+1. Current config definitions (highest priority)
+2. Base config definitions
+3. Auto-discovered .fx files (sorted alphabetically)
+
+Effects already defined in config are not duplicated from auto-discovery.
+
 ## User Configs (`config_serializer.hpp` / `config_serializer.cpp`)
 
 User configs are stored in `~/.config/vkBasalt/configs/`.
