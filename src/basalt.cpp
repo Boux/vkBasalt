@@ -1092,7 +1092,8 @@ namespace vkBasalt
                         valueStr = param.valueBool ? "true" : "false";
                         break;
                     }
-                    pConfig->setOverride(param.name, valueStr);
+                    // Use prefixed name (e.g., "4xBRZ.coef" not just "coef")
+                    pConfig->setOverride(param.effectName + "." + param.name, valueStr);
                 }
             }
 

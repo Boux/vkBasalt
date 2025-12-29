@@ -570,7 +570,8 @@ namespace vkBasalt
             {
                 if (!opt.name.empty())
                 {
-                    std::string val = pConfig->getOption<std::string>(opt.name);
+                    // Use instance-prefixed lookup (e.g., "4xBRZ.coef" not just "coef")
+                    std::string val = pConfig->getInstanceOption<std::string>(effectName, opt.name);
                     if (!val.empty())
                     {
                         std::variant<int32_t, uint32_t, float> convertedValue;
@@ -578,25 +579,25 @@ namespace vkBasalt
                         switch (opt.type.base)
                         {
                             case reshadefx::type::t_bool:
-                                convertedValue = (int32_t) pConfig->getOption<bool>(opt.name);
+                                convertedValue = (int32_t) pConfig->getInstanceOption<bool>(effectName, opt.name);
                                 specData.resize(offset + sizeof(VkBool32));
                                 std::memcpy(specData.data() + offset, &convertedValue, sizeof(VkBool32));
                                 specMapEntrys.push_back({specId, offset, sizeof(VkBool32)});
                                 break;
                             case reshadefx::type::t_int:
-                                convertedValue = pConfig->getOption<int32_t>(opt.name);
+                                convertedValue = pConfig->getInstanceOption<int32_t>(effectName, opt.name);
                                 specData.resize(offset + sizeof(int32_t));
                                 std::memcpy(specData.data() + offset, &convertedValue, sizeof(int32_t));
                                 specMapEntrys.push_back({specId, offset, sizeof(int32_t)});
                                 break;
                             case reshadefx::type::t_uint:
-                                convertedValue = (uint32_t) pConfig->getOption<int32_t>(opt.name);
+                                convertedValue = (uint32_t) pConfig->getInstanceOption<int32_t>(effectName, opt.name);
                                 specData.resize(offset + sizeof(uint32_t));
                                 std::memcpy(specData.data() + offset, &convertedValue, sizeof(uint32_t));
                                 specMapEntrys.push_back({specId, offset, sizeof(uint32_t)});
                                 break;
                             case reshadefx::type::t_float:
-                                convertedValue = pConfig->getOption<float>(opt.name);
+                                convertedValue = pConfig->getInstanceOption<float>(effectName, opt.name);
                                 specData.resize(offset + sizeof(float));
                                 std::memcpy(specData.data() + offset, &convertedValue, sizeof(float));
                                 specMapEntrys.push_back({specId, offset, sizeof(float)});
