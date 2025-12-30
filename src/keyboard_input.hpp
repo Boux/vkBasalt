@@ -8,6 +8,7 @@ namespace vkBasalt
     struct KeyboardState
     {
         std::string typedChars;     // Characters typed since last call
+        std::string lastKeyName;    // X11 name of last key pressed (for keybind capture)
         bool backspace = false;
         bool del = false;
         bool enter = false;

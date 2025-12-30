@@ -19,6 +19,7 @@ namespace vkBasalt
     static int xiOpcode = 0;
     static bool xiInitialized = false;
     static std::string typedCharsAccumulator;
+    static std::string lastKeyNameAccumulator;
     static bool backspacePressed = false;
     static bool deletePressed = false;
     static bool enterPressed = false;
@@ -108,6 +109,17 @@ namespace vkBasalt
     {
         KeySym keysym = XkbKeycodeToKeysym(kbDisplay, keycode, 0, 0);
 
+        // Capture key name for keybind editor (skip modifier keys)
+        if (keysym != XK_Shift_L && keysym != XK_Shift_R &&
+            keysym != XK_Control_L && keysym != XK_Control_R &&
+            keysym != XK_Alt_L && keysym != XK_Alt_R &&
+            keysym != XK_Super_L && keysym != XK_Super_R)
+        {
+            const char* keyName = XKeysymToString(keysym);
+            if (keyName)
+                lastKeyNameAccumulator = keyName;
+        }
+
         // Handle special keys
         if (keysym == XK_BackSpace) backspacePressed = true;
         else if (keysym == XK_Delete) deletePressed = true;
@@ -169,6 +181,7 @@ namespace vkBasalt
         }
 
         state.typedChars = typedCharsAccumulator;
+        state.lastKeyName = lastKeyNameAccumulator;
         state.backspace = backspacePressed;
         state.del = deletePressed;
         state.enter = enterPressed;
@@ -179,6 +192,7 @@ namespace vkBasalt
 
         // Reset accumulators
         typedCharsAccumulator.clear();
+        lastKeyNameAccumulator.clear();
         backspacePressed = false;
         deletePressed = false;
         enterPressed = false;

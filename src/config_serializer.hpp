@@ -14,6 +14,20 @@ namespace vkBasalt
         std::string value;
     };
 
+    // Global vkBasalt settings (from vkBasalt.conf)
+    struct VkBasaltSettings
+    {
+        std::string reshadeTexturePath;
+        std::string reshadeIncludePath;
+        int maxEffects = 10;
+        bool overlayBlockInput = false;
+        std::string toggleKey = "Home";
+        std::string reloadKey = "F10";
+        std::string overlayKey = "End";
+        bool enableOnLaunch = true;
+        bool depthCapture = false;
+    };
+
     class ConfigSerializer
     {
     public:
@@ -45,6 +59,10 @@ namespace vkBasalt
         static bool setDefaultConfig(const std::string& configName);
         static std::string getDefaultConfig();
         static std::string getDefaultConfigPath();
+
+        // Global settings management (vkBasalt.conf)
+        static VkBasaltSettings loadSettings();
+        static bool saveSettings(const VkBasaltSettings& settings);
     };
 
 } // namespace vkBasalt

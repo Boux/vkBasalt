@@ -133,7 +133,21 @@ namespace vkBasalt
         bool inSelectionMode = false;
         int insertPosition = -1;  // Position to insert effects (-1 = append to end)
         bool inConfigManageMode = false;
+        bool inSettingsMode = false;
         std::vector<std::string> configList;
+
+        // Settings state (editable copies of config values)
+        char settingsTexturePath[512] = "";
+        char settingsIncludePath[512] = "";
+        int settingsMaxEffects = 10;
+        bool settingsBlockInput = false;
+        char settingsToggleKey[32] = "Home";
+        char settingsReloadKey[32] = "F10";
+        char settingsOverlayKey[32] = "End";
+        bool settingsEnableOnLaunch = true;
+        bool settingsDepthCapture = false;
+        bool settingsInitialized = false;
+        int listeningForKey = 0;  // 0=none, 1=toggle, 2=reload, 3=overlay
         size_t maxEffects = 10;
         int dragSourceIndex = -1;   // Index of effect being dragged, -1 if none
         int dragTargetIndex = -1;   // Index where effect will be dropped
