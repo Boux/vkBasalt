@@ -48,38 +48,32 @@ A Vulkan post-processing layer with an in-game GUI for real-time effect configur
 ### ReShade Support
 Use ReShade FX shaders from the [reshade-shaders repository](https://github.com/crosire/reshade-shaders) or custom shaders.
 
-## Installation (Development Build)
+## Installation
 
 ```bash
-git clone https://github.com/Boux/vkBasalt.git
-cd vkBasalt
-meson setup --buildtype=release build
-ninja -C build
-```
-
-Edit `build/config/vkBasalt.json` and set `library_path` to the absolute path:
-```json
-"library_path": "/absolute/path/to/vkBasalt/build/src/libvkbasalt.so"
+git clone https://github.com/Boux/vkBasalt_overlay.git
+cd vkBasalt_overlay
+meson setup --buildtype=release --prefix=/usr build-release
+sudo ninja -C build-release install
 ```
 
 ## Usage
 
 ### Test with vkgears
 ```bash
-VK_ADD_IMPLICIT_LAYER_PATH=/path/to/vkBasalt/build/config ENABLE_VKBASALT=1 vkgears
+ENABLE_VKBASALT=1 vkgears
 ```
 
 ### Steam
 Add to launch options:
 ```
-VK_ADD_IMPLICIT_LAYER_PATH=/path/to/vkBasalt/build/config ENABLE_VKBASALT=1 %command%
+ENABLE_VKBASALT=1 %command%
 ```
 
 ### Lutris
 1. Right-click game → Configure
 2. System options → Environment variables
-3. Add `VK_ADD_IMPLICIT_LAYER_PATH` = `/path/to/vkBasalt/build/config`
-4. Add `ENABLE_VKBASALT` = `1`
+3. Add `ENABLE_VKBASALT` = `1`
 
 ## Configuration
 
