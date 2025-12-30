@@ -66,10 +66,6 @@ namespace vkBasalt
             toggleEffectsRequested = true;
         ImGui::SameLine();
         ImGui::TextDisabled("(%s)", settingsToggleKey);
-        float settingsWidth = ImGui::CalcTextSize("Settings").x + ImGui::GetStyle().FramePadding.x * 2;
-        ImGui::SameLine(ImGui::GetWindowWidth() - settingsWidth - ImGui::GetStyle().WindowPadding.x);
-        if (ImGui::Button("Settings"))
-            inSettingsMode = true;
         ImGui::Separator();
 
         // Add Effects button

@@ -126,6 +126,7 @@ namespace vkBasalt
         void renderAddEffectsView();
         void renderConfigManagerView();
         void renderSettingsView(const KeyboardState& keyboard);
+        void renderShaderManagerView();
         void renderMainView(const KeyboardState& keyboard);
 
         LogicalDevice* pLogicalDevice;
@@ -144,8 +145,14 @@ namespace vkBasalt
         bool inSelectionMode = false;
         int insertPosition = -1;  // Position to insert effects (-1 = append to end)
         bool inConfigManageMode = false;
-        bool inSettingsMode = false;
+        int currentTab = 0;  // 0=Effects, 1=Shaders, 2=Settings
         std::vector<std::string> configList;
+
+        // Shader Manager state
+        std::vector<std::string> shaderMgrParentDirs;
+        std::vector<std::string> shaderMgrShaderPaths;
+        std::vector<std::string> shaderMgrTexturePaths;
+        bool shaderMgrInitialized = false;
 
         // Settings state (editable copies of config values)
         char settingsTexturePath[512] = "";

@@ -514,14 +514,34 @@ namespace vkBasalt
         // vkBasalt info window
         ImGui::Begin("vkBasalt Controls");
 
-        if (inSelectionMode)
-            renderAddEffectsView();
-        else if (inConfigManageMode)
-            renderConfigManagerView();
-        else if (inSettingsMode)
-            renderSettingsView(keyboard);
-        else
-            renderMainView(keyboard);
+        // Tab bar for main navigation
+        if (ImGui::BeginTabBar("MainTabs"))
+        {
+            if (ImGui::BeginTabItem("Effects"))
+            {
+                currentTab = 0;
+                if (inSelectionMode)
+                    renderAddEffectsView();
+                else if (inConfigManageMode)
+                    renderConfigManagerView();
+                else
+                    renderMainView(keyboard);
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Shaders"))
+            {
+                currentTab = 1;
+                renderShaderManagerView();
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Settings"))
+            {
+                currentTab = 2;
+                renderSettingsView(keyboard);
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
+        }
 
         ImGui::End();
 

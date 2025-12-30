@@ -9,10 +9,6 @@ namespace vkBasalt
 {
     void ImGuiOverlay::renderSettingsView(const KeyboardState& keyboard)
     {
-        // Settings mode
-        ImGui::Text("vkBasalt Settings");
-        ImGui::Separator();
-
         ImGui::BeginChild("SettingsContent", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false);
 
         // Paths section
@@ -109,7 +105,7 @@ namespace vkBasalt
 
         ImGui::EndChild();
 
-        // Footer buttons
+        // Footer button
         if (ImGui::Button("Save"))
         {
             VkBasaltSettings newSettings;
@@ -124,14 +120,6 @@ namespace vkBasalt
             newSettings.depthCapture = settingsDepthCapture;
             ConfigSerializer::saveSettings(newSettings);
             settingsSaved = true;  // Signal basalt.cpp to reload keybindings
-            inSettingsMode = false;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Cancel"))
-        {
-            // Reload settings to discard changes
-            settingsInitialized = false;
-            inSettingsMode = false;
         }
     }
 

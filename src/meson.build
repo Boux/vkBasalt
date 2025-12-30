@@ -14,6 +14,7 @@ overlay_src = [
     'overlay/view_add_effects.cpp',
     'overlay/view_configs.cpp',
     'overlay/view_settings.cpp',
+    'overlay/view_shader_manager.cpp',
     'overlay/view_main.cpp',
 ]
 
