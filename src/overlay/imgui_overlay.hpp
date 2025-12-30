@@ -10,6 +10,7 @@
 
 #include "vulkan_include.hpp"
 #include "logical_device.hpp"
+#include "keyboard_input.hpp"
 
 namespace vkBasalt
 {
@@ -120,6 +121,12 @@ namespace vkBasalt
         void initVulkanBackend(VkFormat swapchainFormat, uint32_t imageCount);
         void saveToPersistentState();
         void saveCurrentConfig();
+
+        // View rendering methods (implemented in separate files)
+        void renderAddEffectsView();
+        void renderConfigManagerView();
+        void renderSettingsView(const KeyboardState& keyboard);
+        void renderMainView(const KeyboardState& keyboard);
 
         LogicalDevice* pLogicalDevice;
         OverlayPersistentState* pPersistentState;

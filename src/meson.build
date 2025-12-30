@@ -9,6 +9,14 @@ imgui_src = [
     'imgui/backends/imgui_impl_vulkan.cpp',
 ]
 
+overlay_src = [
+    'overlay/imgui_overlay.cpp',
+    'overlay/view_add_effects.cpp',
+    'overlay/view_configs.cpp',
+    'overlay/view_settings.cpp',
+    'overlay/view_main.cpp',
+]
+
 vkBasalt_src = [
     'basalt.cpp',
     'buffer.cpp',
@@ -48,7 +56,6 @@ vkBasalt_src = [
     'stb_image_resize.c',
     'util.cpp',
     'vkdispatch.cpp',
-    'imgui_overlay.cpp',
 ]
 
 x11_dep = dependency('x11')
@@ -68,11 +75,12 @@ mouse_input_lib = static_library('mouse_input', 'mouse_input.cpp')
 input_blocker_lib = static_library('input_blocker', 'input_blocker.cpp')
 
 imgui_inc = include_directories('imgui')
+overlay_inc = include_directories('overlay')
 
 shared_library(meson.project_name().to_lower(),
-    vkBasalt_src, imgui_src, shader_include,
+    vkBasalt_src, overlay_src, imgui_src, shader_include,
     link_with: [keyboard_input_x11_lib, mouse_input_lib, input_blocker_lib],
-    include_directories : [vkBasalt_include_path, imgui_inc],
+    include_directories : [vkBasalt_include_path, imgui_inc, overlay_inc],
     cpp_args : ['-DIMGUI_IMPL_VULKAN_NO_PROTOTYPES'],
     dependencies : [x11_dep, xi_dep, reshade_dep],
     gnu_symbol_visibility: 'hidden',
