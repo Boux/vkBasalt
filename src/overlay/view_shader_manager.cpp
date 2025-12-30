@@ -134,8 +134,18 @@ namespace vkBasalt
                 ImGui::TextDisabled("None - click Rescan All");
             else
             {
-                for (const auto& path : shaderMgrShaderPaths)
-                    ImGui::BulletText("%s", path.c_str());
+                int removeShaderIdx = -1;
+                for (size_t i = 0; i < shaderMgrShaderPaths.size(); i++)
+                {
+                    ImGui::PushID(static_cast<int>(i));
+                    if (ImGui::SmallButton("X"))
+                        removeShaderIdx = static_cast<int>(i);
+                    ImGui::SameLine();
+                    ImGui::TextUnformatted(shaderMgrShaderPaths[i].c_str());
+                    ImGui::PopID();
+                }
+                if (removeShaderIdx >= 0)
+                    shaderMgrShaderPaths.erase(shaderMgrShaderPaths.begin() + removeShaderIdx);
             }
             ImGui::TreePop();
         }
@@ -147,8 +157,18 @@ namespace vkBasalt
                 ImGui::TextDisabled("None - click Rescan All");
             else
             {
-                for (const auto& path : shaderMgrTexturePaths)
-                    ImGui::BulletText("%s", path.c_str());
+                int removeTextureIdx = -1;
+                for (size_t i = 0; i < shaderMgrTexturePaths.size(); i++)
+                {
+                    ImGui::PushID(static_cast<int>(i) + 1000);  // Offset to avoid ID collision
+                    if (ImGui::SmallButton("X"))
+                        removeTextureIdx = static_cast<int>(i);
+                    ImGui::SameLine();
+                    ImGui::TextUnformatted(shaderMgrTexturePaths[i].c_str());
+                    ImGui::PopID();
+                }
+                if (removeTextureIdx >= 0)
+                    shaderMgrTexturePaths.erase(shaderMgrTexturePaths.begin() + removeTextureIdx);
             }
             ImGui::TreePop();
         }
