@@ -761,7 +761,7 @@ namespace vkBasalt
 
             ImGui::Checkbox("Block Input When Overlay Open", &settingsBlockInput);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("When enabled, keyboard and mouse input is captured by the overlay\nand not passed to the game (like Steam overlay)");
+                ImGui::SetTooltip("When enabled, keyboard and mouse input is captured by the overlay.\nWarning: This blocks ALL input system-wide, even outside the game window!");
 
             ImGui::Text("Max Effects (requires restart):");
             if (ImGui::IsItemHovered())

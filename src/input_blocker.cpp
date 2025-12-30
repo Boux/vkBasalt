@@ -65,6 +65,14 @@ namespace vkBasalt
     void initInputBlocker(bool enabled)
     {
         blockingEnabled = enabled;
+
+        // If disabling, make sure to ungrab any active grab
+        if (!enabled && grabbed)
+        {
+            ungrabInput();
+            blocked = false;
+        }
+
         Logger::debug(std::string("Input blocking ") + (enabled ? "enabled" : "disabled"));
     }
 

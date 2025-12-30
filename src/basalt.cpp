@@ -1031,7 +1031,7 @@ namespace vkBasalt
         static bool reloadPressed = false;
         static bool overlayPressed = false;
 
-        // Check if settings were saved (reload keybindings)
+        // Check if settings were saved (reload keybindings and other settings)
         LogicalDevice* pDeviceForSettings = deviceMap[GetKey(queue)].get();
         if (pDeviceForSettings && pDeviceForSettings->imguiOverlay && pDeviceForSettings->imguiOverlay->hasSettingsSaved())
         {
@@ -1039,8 +1039,9 @@ namespace vkBasalt
             keySymbol = convertToKeySym(newSettings.toggleKey);
             reloadKeySymbol = convertToKeySym(newSettings.reloadKey);
             overlayKeySymbol = convertToKeySym(newSettings.overlayKey);
+            initInputBlocker(newSettings.overlayBlockInput);
             pDeviceForSettings->imguiOverlay->clearSettingsSaved();
-            Logger::info("Keybindings reloaded from settings");
+            Logger::info("Settings reloaded");
         }
 
         if (!initLogged)
