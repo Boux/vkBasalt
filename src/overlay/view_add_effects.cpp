@@ -47,7 +47,7 @@ namespace vkBasalt
         };
 
         // Helper to render add button for an effect
-        auto renderAddButton = [&](const std::string& effectType) {
+        auto renderAddButton = [&](const std::string& effectType, const std::string& tooltip = "") {
             bool atLimit = totalCount >= maxEffects;
             if (atLimit)
                 ImGui::BeginDisabled();
@@ -57,6 +57,10 @@ namespace vkBasalt
                 std::string instanceName = getNextInstanceName(effectType);
                 pendingAddEffects.push_back({instanceName, effectType});
             }
+
+            // Show tooltip with shader path on hover
+            if (!tooltip.empty() && ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s", tooltip.c_str());
 
             if (atLimit)
                 ImGui::EndDisabled();
@@ -89,7 +93,11 @@ namespace vkBasalt
             ImGui::Separator();
             ImGui::Text("ReShade (%s):", state.configName.c_str());
             for (const auto& effectType : sortedCurrentConfig)
-                renderAddButton(effectType);
+            {
+                auto it = state.effectPaths.find(effectType);
+                std::string path = (it != state.effectPaths.end()) ? it->second : "";
+                renderAddButton(effectType, path);
+            }
         }
 
         // ReShade effects from default config
@@ -98,7 +106,11 @@ namespace vkBasalt
             ImGui::Separator();
             ImGui::Text("ReShade (all):");
             for (const auto& effectType : sortedDefaultConfig)
-                renderAddButton(effectType);
+            {
+                auto it = state.effectPaths.find(effectType);
+                std::string path = (it != state.effectPaths.end()) ? it->second : "";
+                renderAddButton(effectType, path);
+            }
         }
 
         ImGui::EndChild();

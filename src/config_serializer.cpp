@@ -4,6 +4,7 @@
 #include <fstream>
 #include <cstdlib>
 #include <cstdio>
+#include <filesystem>
 #include <sys/stat.h>
 #include <dirent.h>
 #include <algorithm>
@@ -321,6 +322,47 @@ namespace vkBasalt
         Logger::info("Created default vkBasalt.conf");
     }
 
+    // Case-insensitive string comparison helper
+    static bool equalsIgnoreCaseLocal(const std::string& a, const std::string& b)
+    {
+        if (a.size() != b.size())
+            return false;
+        for (size_t i = 0; i < a.size(); i++)
+        {
+            if (std::tolower(static_cast<unsigned char>(a[i])) !=
+                std::tolower(static_cast<unsigned char>(b[i])))
+                return false;
+        }
+        return true;
+    }
+
+    // Scan a directory recursively for Shaders/ and Textures/ subdirectories
+    static void scanDirectoryForShaders(
+        const std::string& dir,
+        std::vector<std::string>& shaderPaths,
+        std::vector<std::string>& texturePaths)
+    {
+        try
+        {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(
+                dir, std::filesystem::directory_options::skip_permission_denied))
+            {
+                if (!entry.is_directory())
+                    continue;
+
+                std::string dirName = entry.path().filename().string();
+                if (equalsIgnoreCaseLocal(dirName, "Shaders"))
+                    shaderPaths.push_back(entry.path().string());
+                else if (equalsIgnoreCaseLocal(dirName, "Textures"))
+                    texturePaths.push_back(entry.path().string());
+            }
+        }
+        catch (const std::filesystem::filesystem_error& e)
+        {
+            Logger::err("Error scanning directory " + dir + ": " + e.what());
+        }
+    }
+
     ShaderManagerConfig ConfigSerializer::loadShaderManagerConfig()
     {
         ShaderManagerConfig config;
@@ -328,8 +370,28 @@ namespace vkBasalt
 
         std::ifstream file(configPath);
         if (!file.is_open())
-            return config;
+        {
+            // Config file doesn't exist - set up defaults
+            std::string defaultReshadeDir = getBaseConfigDir() + "/reshade";
 
+            // Create directories if they don't exist
+            mkdir(defaultReshadeDir.c_str(), 0755);
+            mkdir((defaultReshadeDir + "/Shaders").c_str(), 0755);
+            mkdir((defaultReshadeDir + "/Textures").c_str(), 0755);
+
+            config.parentDirectories.push_back(defaultReshadeDir);
+
+            // Auto-scan to discover paths
+            scanDirectoryForShaders(defaultReshadeDir,
+                config.discoveredShaderPaths, config.discoveredTexturePaths);
+
+            // Save the config so it persists
+            saveShaderManagerConfig(config);
+            Logger::info("Created default shader manager config with reshade directory");
+            return config;
+        }
+
+        // File exists - parse it (respect user's choices, even if empty)
         std::string line;
         while (std::getline(file, line))
         {
