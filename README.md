@@ -26,7 +26,7 @@ Steam game launch options (I have only tested with Tunic as of now)
 VK_ADD_IMPLICIT_LAYER_PATH=/path/to/vkBasalt_overlay/build/config ENABLE_VKBASALT=1 %command%
 ```
 
-You should then be able to press `F11` to show the overlay GUI in-game. If the GUI doesn't show up, the `library_path` is probably not set properly.
+You should then be able to press `End` to show the overlay GUI in-game.
 you can change this keybinding in your `vkBasalt.conf` with `overlayKey = <key>`.
 
 **Warning** I have not tested with Nvidia, only AMD.
@@ -41,7 +41,7 @@ you can change this keybinding in your `vkBasalt.conf` with `overlayKey = <key>`
 
 ### On feature/imgui or feature/ingui_stable branches
 **Toggle Overlay**
-- Press `F11` (default) to show/hide the overlay
+- Press `End` (default) to show/hide the overlay
 - Configurable via `overlayKey` in vkBasalt.conf
 
 **Effect Selection**
@@ -67,7 +67,7 @@ Add these to your `vkBasalt.conf`:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `overlayKey` | `F11` | Key to toggle the overlay |
+| `overlayKey` | `End` | Key to toggle the overlay |
 | `maxEffects` | `10` | Maximum number of effects that can be selected |
 
 ---

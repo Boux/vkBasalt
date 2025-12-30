@@ -2,15 +2,20 @@
 
 #include <mutex>
 #include <map>
+#include <set>
+#include <chrono>
 #include <vector>
 #include <unordered_map>
 #include <iostream>
 #include <string>
 #include <memory>
 #include <cstring>
+#include <filesystem>
+#include <algorithm>
 
 #include "util.hpp"
 #include "keyboard_input.hpp"
+#include "input_blocker.hpp"
 
 #include "logical_device.hpp"
 #include "logical_swapchain.hpp"
@@ -24,6 +29,7 @@
 #include "command_buffer.hpp"
 #include "buffer.hpp"
 #include "config.hpp"
+#include "config_serializer.hpp"
 #include "fake_swapchain.hpp"
 #include "renderpass.hpp"
 #include "format.hpp"
@@ -38,6 +44,9 @@
 #include "effect_lut.hpp"
 #include "effect_reshade.hpp"
 #include "effect_transfer.hpp"
+#include "imgui_overlay.hpp"
+#include "effect_params.hpp"
+#include "effect_registry.hpp"
 
 #define VKBASALT_NAME "VK_LAYER_VKBASALT_post_processing"
 
@@ -49,7 +58,9 @@
 
 namespace vkBasalt
 {
-    std::shared_ptr<Config> pConfig = nullptr;
+    std::shared_ptr<Config> pBaseConfig = nullptr;  // Always vkBasalt.conf
+    std::shared_ptr<Config> pConfig = nullptr;      // Current config (base + overlay)
+    EffectRegistry effectRegistry;                   // Single source of truth for effect configs
 
     Logger Logger::s_instance;
 
@@ -73,8 +84,203 @@ namespace vkBasalt
         return *(void**) inst;
     }
 
+    // Cached available effects data (to avoid re-parsing config every frame)
+    struct CachedEffectsData
+    {
+        std::vector<std::string> currentConfigEffects;
+        std::vector<std::string> defaultConfigEffects;
+        std::map<std::string, std::string> effectPaths;
+        std::string configPath;
+        bool initialized = false;
+    };
+    CachedEffectsData cachedEffects;
+
+    // Cached parameters (to avoid re-parsing config every frame)
+    struct CachedParametersData
+    {
+        std::vector<EffectParameter> parameters;
+        std::vector<std::string> effectNames;  // Effects when params were collected
+        std::string configPath;
+        bool dirty = true;  // Set to true to force recollection
+    };
+    CachedParametersData cachedParams;
+
+    // Debounce for resize - delays effect reload until resize stops
+    struct ResizeDebounceState
+    {
+        std::chrono::steady_clock::time_point lastResizeTime;
+        bool pending = false;
+    };
+    ResizeDebounceState resizeDebounce;
+    constexpr int64_t RESIZE_DEBOUNCE_MS = 200;
+
+    // Initialize configs: base (vkBasalt.conf) + current (from env/default_config)
+    void initConfigs()
+    {
+        if (pBaseConfig != nullptr)
+            return;  // Already initialized
+
+        // Ensure vkBasalt.conf exists with defaults before reading
+        ConfigSerializer::ensureConfigExists();
+
+        // Load base config (vkBasalt.conf) - used for paths, effect definitions
+        pBaseConfig = std::make_shared<Config>();
+
+        // Determine current config path
+        std::string currentConfigPath;
+
+        // 1. Check env var
+        const char* envConfig = std::getenv("VKBASALT_CONFIG_FILE");
+        if (envConfig && *envConfig)
+        {
+            currentConfigPath = envConfig;
+        }
+        // 2. Check default_config file
+        else
+        {
+            std::string defaultName = ConfigSerializer::getDefaultConfig();
+            if (!defaultName.empty())
+                currentConfigPath = ConfigSerializer::getConfigsDir() + "/" + defaultName + ".conf";
+        }
+
+        // Load current config if specified, otherwise use base
+        if (!currentConfigPath.empty())
+        {
+            std::ifstream file(currentConfigPath);
+            if (file.good())
+            {
+                pConfig = std::make_shared<Config>(currentConfigPath);
+                pConfig->setFallback(pBaseConfig.get());
+                Logger::info("current config: " + currentConfigPath);
+            }
+            else
+            {
+                pConfig = pBaseConfig;  // Fall back to base
+            }
+        }
+        else
+        {
+            pConfig = pBaseConfig;  // No current config, use base
+        }
+
+        // Initialize effect registry with current config
+        effectRegistry.initialize(pConfig.get());
+    }
+
+    // Switch to a new config (called from overlay)
+    void switchConfig(const std::string& configPath)
+    {
+        Logger::info("switching to config: " + configPath);
+
+        // Create new config from file (starts with no overrides)
+        pConfig = std::make_shared<Config>(configPath);
+        pConfig->setFallback(pBaseConfig.get());
+
+        // Also clear any overrides on the base config to avoid stale values
+        if (pBaseConfig)
+            pBaseConfig->clearOverrides();
+
+        // Re-initialize registry with new config
+        effectRegistry.initialize(pConfig.get());
+        cachedParams.dirty = true;
+
+        Logger::info("switched to config: " + configPath);
+    }
+
+    // Helper function to get available effects separated by source (uses cache)
+    void getAvailableEffects(Config* pConfig,
+                             std::vector<std::string>& currentConfigEffects,
+                             std::vector<std::string>& defaultConfigEffects,
+                             std::map<std::string, std::string>& effectPaths)
+    {
+        // Use cache if available and config hasn't changed
+        if (cachedEffects.initialized && cachedEffects.configPath == pConfig->getConfigFilePath())
+        {
+            currentConfigEffects = cachedEffects.currentConfigEffects;
+            defaultConfigEffects = cachedEffects.defaultConfigEffects;
+            effectPaths = cachedEffects.effectPaths;
+            return;
+        }
+
+        currentConfigEffects.clear();
+        defaultConfigEffects.clear();
+        effectPaths.clear();
+
+        // Collect all known effect names (to avoid duplicates)
+        std::set<std::string> knownEffects;
+
+        // Get effect definitions from current config
+        auto configEffects = pConfig->getEffectDefinitions();
+        for (const auto& [name, path] : configEffects)
+        {
+            currentConfigEffects.push_back(name);
+            effectPaths[name] = path;
+            knownEffects.insert(name);
+        }
+
+        // Also load effect definitions from the base config file (vkBasalt.conf)
+        if (pBaseConfig && pBaseConfig->getConfigFilePath() != pConfig->getConfigFilePath())
+        {
+            auto defaultEffects = pBaseConfig->getEffectDefinitions();
+            for (const auto& [name, path] : defaultEffects)
+            {
+                if (knownEffects.find(name) == knownEffects.end())
+                {
+                    defaultConfigEffects.push_back(name);
+                    effectPaths[name] = path;
+                    knownEffects.insert(name);
+                }
+            }
+        }
+
+        // Auto-discover .fx files in reshadeIncludePath
+        std::string includePath = pBaseConfig ? pBaseConfig->getOption<std::string>("reshadeIncludePath", "")
+                                              : pConfig->getOption<std::string>("reshadeIncludePath", "");
+        if (!includePath.empty())
+        {
+            try
+            {
+                for (const auto& entry : std::filesystem::directory_iterator(includePath))
+                {
+                    if (!entry.is_regular_file())
+                        continue;
+
+                    std::string filename = entry.path().filename().string();
+                    if (filename.size() < 4 || filename.substr(filename.size() - 3) != ".fx")
+                        continue;
+
+                    // Effect name is filename without .fx extension
+                    std::string effectName = filename.substr(0, filename.size() - 3);
+
+                    // Skip if already known (from config definitions)
+                    if (knownEffects.find(effectName) != knownEffects.end())
+                        continue;
+
+                    defaultConfigEffects.push_back(effectName);
+                    effectPaths[effectName] = entry.path().string();
+                    knownEffects.insert(effectName);
+                }
+
+                // Sort discovered effects alphabetically
+                std::sort(defaultConfigEffects.begin(), defaultConfigEffects.end());
+            }
+            catch (const std::filesystem::filesystem_error& e)
+            {
+                Logger::warn("failed to scan reshadeIncludePath: " + std::string(e.what()));
+            }
+        }
+
+        // Update cache
+        cachedEffects.currentConfigEffects = currentConfigEffects;
+        cachedEffects.defaultConfigEffects = defaultConfigEffects;
+        cachedEffects.effectPaths = effectPaths;
+        cachedEffects.configPath = pConfig->getConfigFilePath();
+        cachedEffects.initialized = true;
+    }
+
     // Helper function to reload effects for a swapchain (for hot-reload)
-    void reloadEffectsForSwapchain(LogicalSwapchain* pLogicalSwapchain, Config* pConfig)
+    void reloadEffectsForSwapchain(LogicalSwapchain* pLogicalSwapchain, Config* pConfig,
+                                   const std::vector<std::string>& activeEffects = {})
     {
         LogicalDevice* pLogicalDevice = pLogicalSwapchain->pLogicalDevice;
 
@@ -91,15 +297,43 @@ namespace vkBasalt
         pLogicalSwapchain->effects.clear();
         pLogicalSwapchain->defaultTransfer.reset();
 
-        // Recreate effects
-        std::vector<std::string> effectStrings = pConfig->getOption<std::vector<std::string>>("effects", {"cas"});
+        // Use provided active effects list, or fall back to config
+        std::vector<std::string> effectStrings = activeEffects.empty()
+            ? pConfig->getOption<std::vector<std::string>>("effects", {})
+            : activeEffects;
+
+        // Check if we have enough fake images for the effects
+        // Fake images are allocated at swapchain creation based on maxEffectSlots
+        if (effectStrings.size() > pLogicalSwapchain->maxEffectSlots)
+        {
+            Logger::warn("Cannot add more effects than maxEffectSlots (" +
+                        std::to_string(effectStrings.size()) + " > " + std::to_string(pLogicalSwapchain->maxEffectSlots) +
+                        "). Increase maxEffects in config.");
+            effectStrings.resize(pLogicalSwapchain->maxEffectSlots);
+        }
 
         VkFormat unormFormat = convertToUNORM(pLogicalSwapchain->format);
         VkFormat srgbFormat  = convertToSRGB(pLogicalSwapchain->format);
 
+        Logger::info("reloading " + std::to_string(effectStrings.size()) + " effects, fakeImages.size()=" +
+                    std::to_string(pLogicalSwapchain->fakeImages.size()) + ", imageCount=" + std::to_string(pLogicalSwapchain->imageCount) +
+                    ", maxEffectSlots=" + std::to_string(pLogicalSwapchain->maxEffectSlots));
+
+        // If no effects, add pass-through so rendering still works
+        if (effectStrings.empty())
+        {
+            std::vector<VkImage> firstImages(pLogicalSwapchain->fakeImages.begin(),
+                                             pLogicalSwapchain->fakeImages.begin() + pLogicalSwapchain->imageCount);
+            pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new TransferEffect(
+                pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent,
+                firstImages, pLogicalSwapchain->images, pConfig)));
+        }
+
         for (uint32_t i = 0; i < effectStrings.size(); i++)
         {
-            Logger::debug("reloading effect: " + effectStrings[i]);
+            Logger::info("reloading effect " + std::to_string(i) + ": " + effectStrings[i] +
+                        ", firstImages start=" + std::to_string(pLogicalSwapchain->imageCount * i) +
+                        ", end=" + std::to_string(pLogicalSwapchain->imageCount * (i + 1)));
             std::vector<VkImage> firstImages(pLogicalSwapchain->fakeImages.begin() + pLogicalSwapchain->imageCount * i,
                                              pLogicalSwapchain->fakeImages.begin() + pLogicalSwapchain->imageCount * (i + 1));
             std::vector<VkImage> secondImages;
@@ -116,45 +350,64 @@ namespace vkBasalt
                                                     pLogicalSwapchain->fakeImages.begin() + pLogicalSwapchain->imageCount * (i + 2));
             }
 
-            if (effectStrings[i] == std::string("fxaa"))
+            // Check if effect is disabled - if so, use TransferEffect to pass through
+            // Use global effectRegistry as single source of truth
+            bool effectEnabled = effectRegistry.isEffectEnabled(effectStrings[i]);
+            if (!effectEnabled)
+            {
+                Logger::debug("effect disabled, using pass-through: " + effectStrings[i]);
+                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
+                    new TransferEffect(pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
+                continue;
+            }
+
+            // Use effectType from registry to handle instance names like "cas.2"
+            std::string effectType = effectRegistry.getEffectType(effectStrings[i]);
+            if (effectType.empty())
+                effectType = effectStrings[i];  // Fallback to effect name if no type stored
+
+            if (effectType == std::string("fxaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new FxaaEffect(pLogicalDevice, srgbFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("cas"))
+            else if (effectType == std::string("cas"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new CasEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("deband"))
+            else if (effectType == std::string("deband"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DebandEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("smaa"))
+            else if (effectType == std::string("smaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new SmaaEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("lut"))
+            else if (effectType == std::string("lut"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new LutEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
-            else if (effectStrings[i] == std::string("dls"))
+            else if (effectType == std::string("dls"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DlsEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
             }
             else
             {
+                // Get effect file path from registry (supports instance names like "Cartoon.2")
+                std::string effectPath = effectRegistry.getEffectFilePath(effectStrings[i]);
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
                                                                                                pLogicalSwapchain->format,
                                                                                                pLogicalSwapchain->imageExtent,
                                                                                                firstImages,
                                                                                                secondImages,
                                                                                                pConfig,
-                                                                                               effectStrings[i])));
+                                                                                               effectStrings[i],
+                                                                                               effectPath)));
             }
         }
 
@@ -426,6 +679,10 @@ namespace vkBasalt
         Logger::trace("vkDestroyDevice");
 
         LogicalDevice* pLogicalDevice = deviceMap[GetKey(device)].get();
+
+        // Destroy ImGui overlay before device (it uses device resources)
+        pLogicalDevice->imguiOverlay.reset();
+
         if (pLogicalDevice->commandPool != VK_NULL_HANDLE)
         {
             Logger::debug("DestroyCommandPool");
@@ -520,17 +777,80 @@ namespace vkBasalt
         pLogicalSwapchain->images.resize(pLogicalSwapchain->imageCount);
         pLogicalDevice->vkd.GetSwapchainImagesKHR(device, swapchain, &pLogicalSwapchain->imageCount, pLogicalSwapchain->images.data());
 
-        std::vector<std::string> effectStrings = pConfig->getOption<std::vector<std::string>>("effects", {"cas"});
+        // Create image views for overlay rendering
+        pLogicalSwapchain->imageViews.resize(pLogicalSwapchain->imageCount);
+        for (uint32_t i = 0; i < pLogicalSwapchain->imageCount; i++)
+        {
+            VkImageViewCreateInfo viewInfo = {};
+            viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            viewInfo.image = pLogicalSwapchain->images[i];
+            viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            viewInfo.format = pLogicalSwapchain->format;
+            viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            viewInfo.subresourceRange.baseMipLevel = 0;
+            viewInfo.subresourceRange.levelCount = 1;
+            viewInfo.subresourceRange.baseArrayLayer = 0;
+            viewInfo.subresourceRange.layerCount = 1;
+            pLogicalDevice->vkd.CreateImageView(pLogicalDevice->device, &viewInfo, nullptr, &pLogicalSwapchain->imageViews[i]);
+        }
+
+        std::vector<std::string> effectStrings = pConfig->getOption<std::vector<std::string>>("effects", {});
+        std::vector<std::string> disabledEffects = pConfig->getOption<std::vector<std::string>>("disabledEffects", {});
+
+        // Filter out disabled effects
+        effectStrings.erase(
+            std::remove_if(effectStrings.begin(), effectStrings.end(),
+                [&disabledEffects](const std::string& effect) {
+                    return std::find(disabledEffects.begin(), disabledEffects.end(), effect) != disabledEffects.end();
+                }),
+            effectStrings.end());
+
+        // Allow dynamic effect loading by allocating for more effects than configured
+        // maxEffects defaults to 10, allowing users to enable additional effects at runtime
+        int32_t maxEffects = pConfig->getOption<int32_t>("maxEffects", 10);
+        size_t effectSlots = std::max(effectStrings.size(), (size_t)maxEffects);
+        pLogicalSwapchain->maxEffectSlots = effectSlots;
 
         // create 1 more set of images when we can't use the swapchain it self
-        uint32_t fakeImageCount = pLogicalSwapchain->imageCount * (effectStrings.size() + !pLogicalDevice->supportsMutableFormat);
+        uint32_t fakeImageCount = pLogicalSwapchain->imageCount * (effectSlots + !pLogicalDevice->supportsMutableFormat);
 
         pLogicalSwapchain->fakeImages =
             createFakeSwapchainImages(pLogicalDevice, pLogicalSwapchain->swapchainCreateInfo, fakeImageCount, pLogicalSwapchain->fakeImageMemory);
         Logger::debug("created fake swapchain images");
 
+        // If there's persisted state, skip expensive effect creation - use pass-through and debounce
+        bool hasPersisted = pLogicalDevice->overlayPersistentState &&
+                            pLogicalDevice->overlayPersistentState->initialized &&
+                            !pLogicalDevice->overlayPersistentState->selectedEffects.empty();
+
+        if (hasPersisted)
+        {
+            Logger::debug("using pass-through during resize, will restore effects after debounce");
+            // Create simple pass-through: first fake images -> swapchain images
+            std::vector<VkImage> firstImages(pLogicalSwapchain->fakeImages.begin(),
+                                             pLogicalSwapchain->fakeImages.begin() + pLogicalSwapchain->imageCount);
+            pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new TransferEffect(
+                pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent,
+                firstImages, pLogicalSwapchain->images, pConfig.get())));
+
+            resizeDebounce.pending = true;
+            resizeDebounce.lastResizeTime = std::chrono::steady_clock::now();
+        }
+        else
+        {
+        // Normal effect creation from config
         VkFormat unormFormat = convertToUNORM(pLogicalSwapchain->format);
         VkFormat srgbFormat  = convertToSRGB(pLogicalSwapchain->format);
+
+        // If no effects (all disabled), add pass-through so commandBuffersEffect still works
+        if (effectStrings.empty())
+        {
+            std::vector<VkImage> firstImages(pLogicalSwapchain->fakeImages.begin(),
+                                             pLogicalSwapchain->fakeImages.begin() + pLogicalSwapchain->imageCount);
+            pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new TransferEffect(
+                pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent,
+                firstImages, pLogicalSwapchain->images, pConfig.get())));
+        }
 
         for (uint32_t i = 0; i < effectStrings.size(); i++)
         {
@@ -554,37 +874,43 @@ namespace vkBasalt
                 Logger::debug("not using swapchain images as second images");
             }
             Logger::debug(std::to_string(secondImages.size()) + " images in secondImages");
-            if (effectStrings[i] == std::string("fxaa"))
+
+            // Use effectType from registry to handle instance names like "cas.2"
+            std::string effectType = effectRegistry.getEffectType(effectStrings[i]);
+            if (effectType.empty())
+                effectType = effectStrings[i];  // Fallback to effect name if no type stored
+
+            if (effectType == std::string("fxaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new FxaaEffect(pLogicalDevice, srgbFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created FxaaEffect");
             }
-            else if (effectStrings[i] == std::string("cas"))
+            else if (effectType == std::string("cas"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new CasEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created CasEffect");
             }
-            else if (effectStrings[i] == std::string("deband"))
+            else if (effectType == std::string("deband"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DebandEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created DebandEffect");
             }
-            else if (effectStrings[i] == std::string("smaa"))
+            else if (effectType == std::string("smaa"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new SmaaEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created SmaaEffect");
             }
-            else if (effectStrings[i] == std::string("lut"))
+            else if (effectType == std::string("lut"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new LutEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
                 Logger::debug("created LutEffect");
             }
-            else if (effectStrings[i] == std::string("dls"))
+            else if (effectType == std::string("dls"))
             {
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new DlsEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
@@ -592,13 +918,16 @@ namespace vkBasalt
             }
             else
             {
+                // Get effect file path from registry (supports instance names like "Cartoon.2")
+                std::string effectPath = effectRegistry.getEffectFilePath(effectStrings[i]);
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
                                                                                                pLogicalSwapchain->format,
                                                                                                pLogicalSwapchain->imageExtent,
                                                                                                firstImages,
                                                                                                secondImages,
                                                                                                pConfig.get(),
-                                                                                               effectStrings[i])));
+                                                                                               effectStrings[i],
+                                                                                               effectPath)));
                 Logger::debug("created ReshadeEffect");
             }
         }
@@ -613,6 +942,7 @@ namespace vkBasalt
                 pLogicalSwapchain->images,
                 pConfig.get())));
         }
+        } // end else (normal effect creation)
 
         VkImageView depthImageView = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthImageViews[0] : VK_NULL_HANDLE;
         VkImage     depthImage     = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthImages[0] : VK_NULL_HANDLE;
@@ -630,6 +960,7 @@ namespace vkBasalt
         Logger::debug("wrote CommandBuffers");
 
         pLogicalSwapchain->semaphores = createSemaphores(pLogicalDevice, pLogicalSwapchain->imageCount);
+        pLogicalSwapchain->overlaySemaphores = createSemaphores(pLogicalDevice, pLogicalSwapchain->imageCount);
         Logger::debug("created semaphores");
         for (unsigned int i = 0; i < pLogicalSwapchain->imageCount; i++)
         {
@@ -659,6 +990,27 @@ namespace vkBasalt
             Logger::debug(std::to_string(i) + " written commandbuffer " + convertToString(pLogicalSwapchain->commandBuffersNoEffect[i]));
         }
 
+        // Create ImGui overlay at device level (if not already created)
+        // This survives swapchain recreation during resize
+        if (!pLogicalDevice->imguiOverlay)
+        {
+            if (!pLogicalDevice->overlayPersistentState)
+                pLogicalDevice->overlayPersistentState = std::make_unique<OverlayPersistentState>();
+            pLogicalDevice->imguiOverlay = std::make_unique<ImGuiOverlay>(
+                pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageCount,
+                pLogicalDevice->overlayPersistentState.get());
+            // Set the effect registry pointer (single source of truth for enabled states)
+            pLogicalDevice->imguiOverlay->setEffectRegistry(&effectRegistry);
+
+            // Initialize input blocking (grabs all input when overlay is visible)
+            static bool inputBlockerInited = false;
+            if (!inputBlockerInited)
+            {
+                initInputBlocker(pConfig->getOption<bool>("overlayBlockInput", false));
+                inputBlockerInited = true;
+            }
+        }
+
         *pCount = std::min<uint32_t>(*pCount, pLogicalSwapchain->imageCount);
         std::memcpy(pSwapchainImages, pLogicalSwapchain->fakeImages.data(), sizeof(VkImage) * (*pCount));
         return *pCount < pLogicalSwapchain->imageCount ? VK_INCOMPLETE : VK_SUCCESS;
@@ -668,22 +1020,37 @@ namespace vkBasalt
     {
         scoped_lock l(globalLock);
 
+        // Keybindings - can be reloaded when settings are saved
         static uint32_t keySymbol = convertToKeySym(pConfig->getOption<std::string>("toggleKey", "Home"));
         static uint32_t reloadKeySymbol = convertToKeySym(pConfig->getOption<std::string>("reloadKey", "F10"));
+        static uint32_t overlayKeySymbol = convertToKeySym(pConfig->getOption<std::string>("overlayKey", "End"));
         static bool initLogged = false;
 
         static bool pressed       = false;
         static bool presentEffect = pConfig->getOption<bool>("enableOnLaunch", true);
         static bool reloadPressed = false;
+        static bool overlayPressed = false;
+
+        // Check if settings were saved (reload keybindings and other settings)
+        LogicalDevice* pDeviceForSettings = deviceMap[GetKey(queue)].get();
+        if (pDeviceForSettings && pDeviceForSettings->imguiOverlay && pDeviceForSettings->imguiOverlay->hasSettingsSaved())
+        {
+            VkBasaltSettings newSettings = ConfigSerializer::loadSettings();
+            keySymbol = convertToKeySym(newSettings.toggleKey);
+            reloadKeySymbol = convertToKeySym(newSettings.reloadKey);
+            overlayKeySymbol = convertToKeySym(newSettings.overlayKey);
+            initInputBlocker(newSettings.overlayBlockInput);
+            pDeviceForSettings->imguiOverlay->clearSettingsSaved();
+            Logger::info("Settings reloaded");
+        }
 
         if (!initLogged)
         {
-            Logger::info("hot-reload initialized, reloadKey symbol: " + std::to_string(reloadKeySymbol));
-            Logger::info("config file path: " + pConfig->getConfigFilePath());
+            Logger::info("hot-reload initialized, config: " + pConfig->getConfigFilePath());
             initLogged = true;
         }
 
-        // Toggle effect on/off
+        // Toggle effect on/off (keyboard)
         if (isKeyPressed(keySymbol))
         {
             if (!pressed)
@@ -721,23 +1088,122 @@ namespace vkBasalt
             shouldReload = true;
         }
 
+        // Toggle overlay on/off
+        if (isKeyPressed(overlayKeySymbol))
+        {
+            if (!overlayPressed)
+            {
+                // Overlay is now at device level
+                LogicalDevice* pDevice = deviceMap[GetKey(queue)].get();
+                if (pDevice->imguiOverlay)
+                    pDevice->imguiOverlay->toggle();
+                overlayPressed = true;
+            }
+        }
+        else
+        {
+            overlayPressed = false;
+        }
+
+        // Check for Apply button press in overlay (overlay is at device level)
+        LogicalDevice* pLogicalDevice = deviceMap[GetKey(queue)].get();
+
+        // Toggle effects on/off via overlay checkbox
+        if (pLogicalDevice->imguiOverlay && pLogicalDevice->imguiOverlay->hasToggleEffectsRequest())
+        {
+            presentEffect = !presentEffect;
+            pLogicalDevice->imguiOverlay->clearToggleEffectsRequest();
+        }
+
+        if (pLogicalDevice->imguiOverlay && pLogicalDevice->imguiOverlay->hasModifiedParams())
+        {
+            // If we're loading a new config, don't apply old params - just trigger reload
+            bool loadingNewConfig = pLogicalDevice->imguiOverlay->hasPendingConfig();
+
+            if (!loadingNewConfig)
+            {
+                Logger::info("Applying modified parameters from overlay");
+                auto params = pLogicalDevice->imguiOverlay->getModifiedParams();
+                for (const auto& param : params)
+                {
+                    std::string valueStr;
+                    switch (param.type)
+                    {
+                    case ParamType::Float:
+                        valueStr = std::to_string(param.valueFloat);
+                        break;
+                    case ParamType::Int:
+                        valueStr = std::to_string(param.valueInt);
+                        break;
+                    case ParamType::Bool:
+                        valueStr = param.valueBool ? "true" : "false";
+                        break;
+                    }
+                    // Use prefixed name (e.g., "4xBRZ.coef" not just "coef")
+                    pConfig->setOverride(param.effectName + "." + param.name, valueStr);
+                }
+            }
+
+            // Effect enabled states are now in the global effectRegistry (single source of truth)
+            pLogicalDevice->imguiOverlay->clearApplyRequest();
+            shouldReload = true;
+        }
+
         if (shouldReload)
         {
             Logger::info("hot-reloading config and effects...");
-            pConfig->reload();
 
-            // Reload effects for all swapchains
-            for (auto& swapchainPair : swapchainMap)
+            // Check if overlay wants to load a different config
+            if (pLogicalDevice->imguiOverlay && pLogicalDevice->imguiOverlay->hasPendingConfig())
             {
-                LogicalSwapchain* pLogicalSwapchain = swapchainPair.second.get();
-                if (pLogicalSwapchain->fakeImages.size() > 0)
+                std::string newConfigPath = pLogicalDevice->imguiOverlay->getPendingConfigPath();
+                switchConfig(newConfigPath);
+                // Update overlay with effects and disabled effects from the new config
+                std::vector<std::string> newEffects = pConfig->getOption<std::vector<std::string>>("effects", {});
+                std::vector<std::string> disabledEffects = pConfig->getOption<std::vector<std::string>>("disabledEffects", {});
+                pLogicalDevice->imguiOverlay->setSelectedEffects(newEffects, disabledEffects);
+                pLogicalDevice->imguiOverlay->clearPendingConfig();
+                pLogicalDevice->imguiOverlay->markDirty();  // Defer reload via debounce
+            }
+            else
+            {
+                pConfig->reload();
+                cachedEffects.initialized = false;
+                cachedParams.dirty = true;
+
+                std::vector<std::string> activeEffects;
+                if (pLogicalDevice->imguiOverlay)
+                    activeEffects = pLogicalDevice->imguiOverlay->getActiveEffects();
+                else
+                    activeEffects = pConfig->getOption<std::vector<std::string>>("effects", {});
+
+                for (auto& swapchainPair : swapchainMap)
                 {
-                    reloadEffectsForSwapchain(pLogicalSwapchain, pConfig.get());
+                    LogicalSwapchain* pLogicalSwapchain = swapchainPair.second.get();
+                    if (pLogicalSwapchain->fakeImages.size() > 0)
+                        reloadEffectsForSwapchain(pLogicalSwapchain, pConfig.get(), activeEffects);
                 }
             }
         }
 
-        LogicalDevice* pLogicalDevice = deviceMap[GetKey(queue)].get();
+        // Check for debounced resize reload (separate from config reload)
+        auto resizeElapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - resizeDebounce.lastResizeTime).count();
+
+        if (resizeDebounce.pending && resizeElapsed >= RESIZE_DEBOUNCE_MS)
+        {
+            Logger::info("debounced resize reload after " + std::to_string(resizeElapsed) + "ms");
+            resizeDebounce.pending = false;
+
+            for (auto& [_, pSwapchain] : swapchainMap)
+            {
+                if (pSwapchain->fakeImages.empty() || !pLogicalDevice->overlayPersistentState)
+                    continue;
+                // Effect enabled states are read from global effectRegistry
+                reloadEffectsForSwapchain(pSwapchain.get(), pConfig.get(),
+                    pLogicalDevice->overlayPersistentState->selectedEffects);
+            }
+        }
 
         std::vector<VkSemaphore> presentSemaphores;
         presentSemaphores.reserve(pPresentInfo->swapchainCount);
@@ -767,14 +1233,76 @@ namespace vkBasalt
             submitInfo.signalSemaphoreCount = 1;
             submitInfo.pSignalSemaphores    = &(pLogicalSwapchain->semaphores[index]);
 
-            presentSemaphores.push_back(pLogicalSwapchain->semaphores[index]);
-
             VkResult vr = pLogicalDevice->vkd.QueueSubmit(pLogicalDevice->queue, 1, &submitInfo, VK_NULL_HANDLE);
-
             if (vr != VK_SUCCESS)
-            {
                 return vr;
+
+            // Default: wait on effects semaphore for present
+            VkSemaphore finalSemaphore = pLogicalSwapchain->semaphores[index];
+
+            // Update overlay state and render if visible (overlay is at device level)
+            if (pLogicalDevice->imguiOverlay && pLogicalDevice->imguiOverlay->isVisible())
+            {
+                OverlayState overlayState;
+                // Use active effects for display, but collect params for ALL selected effects
+                overlayState.effectNames = pLogicalDevice->imguiOverlay->getActiveEffects();
+                if (overlayState.effectNames.empty())
+                {
+                    overlayState.effectNames = pConfig->getOption<std::vector<std::string>>("effects", {});
+                    overlayState.disabledEffects = pConfig->getOption<std::vector<std::string>>("disabledEffects", {});
+                }
+                getAvailableEffects(pConfig.get(), overlayState.currentConfigEffects,
+                                    overlayState.defaultConfigEffects, overlayState.effectPaths);
+                overlayState.configPath = pConfig->getConfigFilePath();
+                overlayState.configName = std::filesystem::path(overlayState.configPath).filename().string();
+                overlayState.effectsEnabled = presentEffect;
+
+                // Ensure all selected effects are in the registry (for dynamically added effects)
+                const auto& allSelectedEffects = pLogicalDevice->imguiOverlay->getSelectedEffects();
+                for (const auto& effectName : allSelectedEffects)
+                {
+                    if (!effectRegistry.hasEffect(effectName))
+                    {
+                        // Find path from effectPaths map
+                        auto pathIt = overlayState.effectPaths.find(effectName);
+                        std::string effectPath = (pathIt != overlayState.effectPaths.end()) ? pathIt->second : "";
+                        effectRegistry.ensureEffect(effectName, effectPath);
+                    }
+                }
+
+                // Get parameters from registry (single source of truth)
+                // Registry has all parameters for all effects (including disabled)
+                overlayState.parameters = effectRegistry.getAllParameters();
+
+                pLogicalDevice->imguiOverlay->updateState(overlayState);
             }
+
+            VkCommandBuffer overlayCmd = pLogicalDevice->imguiOverlay
+                ? pLogicalDevice->imguiOverlay->recordFrame(index, pLogicalSwapchain->imageViews[index],
+                      pLogicalSwapchain->imageExtent.width, pLogicalSwapchain->imageExtent.height)
+                : VK_NULL_HANDLE;
+
+            if (overlayCmd != VK_NULL_HANDLE)
+            {
+                VkPipelineStageFlags overlayWaitStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+                VkSubmitInfo overlaySubmit = {};
+                overlaySubmit.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                overlaySubmit.waitSemaphoreCount = 1;
+                overlaySubmit.pWaitSemaphores = &(pLogicalSwapchain->semaphores[index]);
+                overlaySubmit.pWaitDstStageMask = &overlayWaitStage;
+                overlaySubmit.commandBufferCount = 1;
+                overlaySubmit.pCommandBuffers = &overlayCmd;
+                overlaySubmit.signalSemaphoreCount = 1;
+                overlaySubmit.pSignalSemaphores = &(pLogicalSwapchain->overlaySemaphores[index]);
+
+                vr = pLogicalDevice->vkd.QueueSubmit(pLogicalDevice->queue, 1, &overlaySubmit, VK_NULL_HANDLE);
+                if (vr != VK_SUCCESS)
+                    return vr;
+
+                finalSemaphore = pLogicalSwapchain->overlaySemaphores[index];
+            }
+
+            presentSemaphores.push_back(finalSemaphore);
         }
 
         VkPresentInfoKHR presentInfo   = *pPresentInfo;
@@ -1052,10 +1580,7 @@ extern "C"
 
     VK_BASALT_EXPORT PFN_vkVoidFunction VKAPI_CALL vkBasalt_GetDeviceProcAddr(VkDevice device, const char* pName)
     {
-        if (vkBasalt::pConfig == nullptr)
-        {
-            vkBasalt::pConfig = std::shared_ptr<vkBasalt::Config>(new vkBasalt::Config());
-        }
+        vkBasalt::initConfigs();
 
         INTERCEPT_CALLS
 
@@ -1067,10 +1592,7 @@ extern "C"
 
     VK_BASALT_EXPORT PFN_vkVoidFunction VKAPI_CALL vkBasalt_GetInstanceProcAddr(VkInstance instance, const char* pName)
     {
-        if (vkBasalt::pConfig == nullptr)
-        {
-            vkBasalt::pConfig = std::shared_ptr<vkBasalt::Config>(new vkBasalt::Config());
-        }
+        vkBasalt::initConfigs();
 
         INTERCEPT_CALLS
 

@@ -5,12 +5,16 @@
 #include <string>
 #include <iostream>
 #include <vector>
+#include <memory>
 
 #include "vulkan_include.hpp"
 #include "vkdispatch.hpp"
 
 namespace vkBasalt
 {
+    struct OverlayPersistentState;  // Forward declaration
+    class ImGuiOverlay;  // Forward declaration
+
     struct LogicalDevice
     {
         DeviceDispatch           vkd;
@@ -25,6 +29,12 @@ namespace vkBasalt
         std::vector<VkImage>     depthImages;
         std::vector<VkFormat>    depthFormats;
         std::vector<VkImageView> depthImageViews;
+
+        // Persistent overlay state that survives swapchain recreation
+        std::unique_ptr<OverlayPersistentState> overlayPersistentState;
+
+        // ImGui overlay - lives at device level to survive swapchain recreation
+        std::unique_ptr<ImGuiOverlay> imguiOverlay;
     };
 } // namespace vkBasalt
 

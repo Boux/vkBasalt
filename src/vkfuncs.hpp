@@ -17,17 +17,24 @@
     FORVKFUNC(BindImageMemory) \
     FORVKFUNC(CmdBeginRenderPass) \
     FORVKFUNC(CmdBindDescriptorSets) \
+    FORVKFUNC(CmdBindIndexBuffer) \
     FORVKFUNC(CmdBindPipeline) \
+    FORVKFUNC(CmdBindVertexBuffers) \
     FORVKFUNC(CmdBlitImage) \
     FORVKFUNC(CmdCopyBufferToImage) \
     FORVKFUNC(CmdCopyImage) \
     FORVKFUNC(CmdDraw) \
+    FORVKFUNC(CmdDrawIndexed) \
     FORVKFUNC(CmdEndRenderPass) \
     FORVKFUNC(CmdPipelineBarrier) \
+    FORVKFUNC(CmdPushConstants) \
+    FORVKFUNC(CmdSetScissor) \
+    FORVKFUNC(CmdSetViewport) \
     FORVKFUNC(CreateBuffer) \
     FORVKFUNC(CreateCommandPool) \
     FORVKFUNC(CreateDescriptorPool) \
     FORVKFUNC(CreateDescriptorSetLayout) \
+    FORVKFUNC(CreateFence) \
     FORVKFUNC(CreateFramebuffer) \
     FORVKFUNC(CreateGraphicsPipelines) \
     FORVKFUNC(CreateImage) \
@@ -43,6 +50,7 @@
     FORVKFUNC(DestroyDescriptorPool) \
     FORVKFUNC(DestroyDescriptorSetLayout) \
     FORVKFUNC(DestroyDevice) \
+    FORVKFUNC(DestroyFence) \
     FORVKFUNC(DestroyFramebuffer) \
     FORVKFUNC(DestroyImage) \
     FORVKFUNC(DestroyImageView) \
@@ -54,7 +62,9 @@
     FORVKFUNC(DestroyShaderModule) \
     FORVKFUNC(DestroySwapchainKHR) \
     FORVKFUNC(EndCommandBuffer) \
+    FORVKFUNC(FlushMappedMemoryRanges) \
     FORVKFUNC(FreeCommandBuffers) \
+    FORVKFUNC(FreeDescriptorSets) \
     FORVKFUNC(FreeMemory) \
     FORVKFUNC(GetBufferMemoryRequirements) \
     FORVKFUNC(GetDeviceProcAddr) \
@@ -66,5 +76,6 @@
     FORVKFUNC(QueuePresentKHR) \
     FORVKFUNC(QueueSubmit) \
     FORVKFUNC(QueueWaitIdle) \
+    FORVKFUNC(ResetCommandPool) \
     FORVKFUNC(UnmapMemory) \
     FORVKFUNC(UpdateDescriptorSets)

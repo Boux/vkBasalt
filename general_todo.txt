@@ -1,0 +1,4 @@
+- block mouse and keyboard inputs when overlay is active
+- manually edit value
+
+- right click menu

@@ -25,8 +25,18 @@ namespace vkBasalt
             for (unsigned int i = 0; i < imageCount; i++)
             {
                 pLogicalDevice->vkd.DestroySemaphore(pLogicalDevice->device, semaphores[i], nullptr);
+                pLogicalDevice->vkd.DestroySemaphore(pLogicalDevice->device, overlaySemaphores[i], nullptr);
             }
             Logger::debug("after DestroySemaphore");
+
+            // Destroy image views for overlay
+            for (auto& view : imageViews)
+            {
+                pLogicalDevice->vkd.DestroyImageView(pLogicalDevice->device, view, nullptr);
+            }
+            imageViews.clear();
+
+            // Note: ImGui overlay is now at device level, not destroyed here
         }
     }
 } // namespace vkBasalt

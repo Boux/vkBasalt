@@ -1,10 +1,16 @@
 #include "framebuffer.hpp"
+#include "logger.hpp"
 
 namespace vkBasalt
 {
     std::vector<VkFramebuffer>
     createFramebuffers(LogicalDevice* pLogicalDevice, VkRenderPass renderPass, VkExtent2D& extent, std::vector<std::vector<VkImageView>> imageViews)
     {
+        if (imageViews.empty() || imageViews[0].empty())
+        {
+            Logger::warn("createFramebuffers: empty imageViews");
+            return {};
+        }
         std::vector<VkFramebuffer> framebuffers(imageViews[0].size());
         std::vector<VkImageView>   perFrameImageViews;
         for (uint32_t i = 0; i < imageViews[0].size(); i++)

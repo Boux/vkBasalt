@@ -1,4 +1,5 @@
 #include "descriptor_set.hpp"
+#include "logger.hpp"
 
 namespace vkBasalt
 {
@@ -126,6 +127,11 @@ namespace vkBasalt
                                                                             std::vector<VkSampler>                samplers,
                                                                             std::vector<std::vector<VkImageView>> imageViewsVectors)
     {
+        if (imageViewsVectors.empty() || imageViewsVectors[0].empty())
+        {
+            Logger::warn("allocateAndWriteImageSamplerDescriptorSets: empty imageViewsVectors");
+            return {};
+        }
         std::vector<VkDescriptorSet> descriptorSets(imageViewsVectors[0].size());
 
         std::vector<VkDescriptorSetLayout> layouts(descriptorSets.size(), descriptorSetLayout);

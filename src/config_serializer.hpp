@@ -1,0 +1,73 @@
+#ifndef CONFIG_SERIALIZER_HPP_INCLUDED
+#define CONFIG_SERIALIZER_HPP_INCLUDED
+
+#include <string>
+#include <vector>
+#include <map>
+
+namespace vkBasalt
+{
+    struct EffectParam
+    {
+        std::string effectName;
+        std::string paramName;
+        std::string value;
+    };
+
+    // Global vkBasalt settings (from vkBasalt.conf)
+    struct VkBasaltSettings
+    {
+        std::string reshadeTexturePath;
+        std::string reshadeIncludePath;
+        int maxEffects = 10;
+        bool overlayBlockInput = false;
+        std::string toggleKey = "Home";
+        std::string reloadKey = "F10";
+        std::string overlayKey = "End";
+        bool enableOnLaunch = true;
+        bool depthCapture = false;
+    };
+
+    class ConfigSerializer
+    {
+    public:
+        // Save a game-specific config to ~/.config/vkBasalt-overlay/configs/<name>.conf
+        // effects: all effects in the list (enabled + disabled)
+        // disabledEffects: effects that are unchecked (won't be rendered)
+        // params: all effect parameters
+        // effectPaths: map of effect name to shader file path (for ReShade effects with custom names)
+        static bool saveConfig(
+            const std::string& configName,
+            const std::vector<std::string>& effects,
+            const std::vector<std::string>& disabledEffects,
+            const std::vector<EffectParam>& params,
+            const std::map<std::string, std::string>& effectPaths = {});
+
+        // Get the base config directory path (~/.config/vkBasalt-overlay/)
+        static std::string getBaseConfigDir();
+
+        // Get the configs directory path (~/.config/vkBasalt-overlay/configs/)
+        static std::string getConfigsDir();
+
+        // List available config files
+        static std::vector<std::string> listConfigs();
+
+        // Delete a config file
+        static bool deleteConfig(const std::string& configName);
+
+        // Default config management
+        static bool setDefaultConfig(const std::string& configName);
+        static std::string getDefaultConfig();
+        static std::string getDefaultConfigPath();
+
+        // Global settings management (vkBasalt.conf)
+        static VkBasaltSettings loadSettings();
+        static bool saveSettings(const VkBasaltSettings& settings);
+
+        // Ensure vkBasalt.conf exists with defaults (call early at startup)
+        static void ensureConfigExists();
+    };
+
+} // namespace vkBasalt
+
+#endif // CONFIG_SERIALIZER_HPP_INCLUDED
