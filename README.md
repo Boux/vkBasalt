@@ -9,7 +9,10 @@ If you want to request features, feel free to do so, it's still pretty incomplet
 
 A Vulkan post-processing layer with an in-game GUI for real-time effect configuration.
 
-![vkBasalt Overlay Screenshot](https://github.com/user-attachments/assets/cc2ff254-03a5-455b-8896-efedc0b28cdd)
+Feature showcase: https://www.youtube.com/watch?v=_KJTToAynr0
+
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/16ff2926-9dbe-4d0b-83af-7552e3ed4c54" />
+
 
 ## Features
 
@@ -50,6 +53,8 @@ Use ReShade FX shaders from the [reshade-shaders repository](https://github.com/
 
 ## Installation
 
+**Warning!** Make sur you uninstall the original vkBasalt if you want to use this fork, they both use the same env variables and will cause some collisions.
+
 ```bash
 git clone https://github.com/Boux/vkBasalt_overlay.git
 cd vkBasalt_overlay
@@ -77,14 +82,14 @@ ENABLE_VKBASALT=1 %command%
 
 ## Configuration
 
-Configuration is stored in `~/.config/vkBasalt-overlay/`. All required config files and subfolders will be generated when vkBasalt_overlay is executed at least once.
+Configuration is stored in `~/.config/vkBasalt-overlay/`. All required config files and subfolders will be generated when vkBasalt_overlay is executed at least once. Note that configs from the original vkBasalt are not compatible with this fork, which is why I've changed the name of the config folder.
 
 ### Key Bindings
 
 | Key | Default | Description |
 |-----|---------|-------------|
 | Toggle Effects | `Home` | Enable/disable all effects |
-| Reload Config | `End` | Reload configuration file |
+| Reload Config | `F10` | Reload configuration file |
 | Toggle Overlay | `End` | Show/hide the overlay GUI |
 
 ### Settings File
@@ -101,7 +106,7 @@ maxEffects = 10
 
 # Key bindings
 toggleKey = Home
-reloadKey = End
+reloadKey = F10
 overlayKey = End
 
 # Startup behavior
