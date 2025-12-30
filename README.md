@@ -39,7 +39,7 @@ you can change this keybinding in your `vkBasalt.conf` with `overlayKey = <key>`
 **Real-time config reloading**
 - Any modifications you do to your config file should apply instantly in-game without needing to re-open the game (too many modifications may or may not crash your game).
 
-### On feature/imgui or feature/ingui_stable branches
+### On feature/imgui or feature/imgui_stable branches
 **Toggle Overlay**
 - Press `End` (default) to show/hide the overlay
 - Configurable via `overlayKey` in vkBasalt.conf
