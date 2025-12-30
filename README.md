@@ -80,7 +80,7 @@ ENABLE_VKBASALT=1 %command%
 
 ## Configuration
 
-Configuration is stored in `~/.config/vkBasalt-overlay/`. All required config files and subfolders will be generated when vkBasalt_overlay is executed at least once.
+Configuration is stored in `~/.config/vkBasalt-overlay/`. All required config files and subfolders will be generated when vkBasalt_overlay is executed at least once. Note that configs from the original vkBasalt are not compatible with this fork, which is why I've changed the name of the config folder.
 
 ### Key Bindings
 
