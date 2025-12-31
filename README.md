@@ -13,7 +13,7 @@ Feature showcase: https://www.youtube.com/watch?v=_KJTToAynr0
 
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/16ff2926-9dbe-4d0b-83af-7552e3ed4c54" />
 
-## Bugs
+## Bugs and Jank
 
 - Default config is sometimes not loaded properly and requires Apply to be clicked manually at least once (will fix soon).
 
