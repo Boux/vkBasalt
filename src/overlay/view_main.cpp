@@ -318,11 +318,9 @@ namespace vkBasalt
             if (pEffectRegistry)
             {
                 auto& defs = pEffectRegistry->getPreprocessorDefs(effectName);
-                if (!defs.empty())
+                if (!defs.empty() && ImGui::TreeNode("preprocessor", "Preprocessor (%zu)", defs.size()))
                 {
-                    ImGui::TextDisabled("Preprocessor:");
-                    if (ImGui::IsItemHovered())
-                        ImGui::SetTooltip("Compile-time macros. Changes require pressing %s to recompile.", settingsReloadKey);
+                    ImGui::TextDisabled("Apply or %s to recompile", settingsReloadKey);
 
                     for (size_t defIdx = 0; defIdx < defs.size(); defIdx++)
                     {
@@ -330,7 +328,7 @@ namespace vkBasalt
                         renderPreprocessorDef(defs[defIdx], pEffectRegistry, effectName);
                         ImGui::PopID();
                     }
-                    ImGui::Separator();
+                    ImGui::TreePop();
                 }
             }
 
