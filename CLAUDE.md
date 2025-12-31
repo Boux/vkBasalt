@@ -34,6 +34,52 @@ ENABLE_VKBASALT=1 VKBASALT_LOG_LEVEL=debug ./game
 
 Use `VKBASALT_CONFIG_FILE=/path/to/config.conf` to test specific configurations.
 
+## CRITICAL: EffectRegistry is the Single Source of Truth
+
+**THIS IS THE MOST IMPORTANT ARCHITECTURAL CONCEPT IN THE CODEBASE.**
+
+`EffectRegistry` (`src/effects/effect_registry.hpp`) is the **ONLY** authoritative source for effect parameter values at runtime. All components read from and write to the registry.
+
+### Data Flow (MUST follow this pattern)
+
+```
+Config file ──(parsed ONCE at startup)──► EffectRegistry ◄──► UI (reads/writes)
+                                               │
+                                               ▼
+                                    Effects read from Registry
+                                               │
+                                               ▼
+                                           Rendering
+```
+
+### Rules (NEVER violate these)
+
+1. **Config is parsed ONCE** - At startup, config values populate EffectRegistry. After that, Config is NOT the source of truth.
+
+2. **UI reads/writes EffectRegistry directly** - The overlay modifies `EffectRegistry` parameters in-place. No intermediate copies.
+
+3. **Effects read from EffectRegistry** - When effects are created/recreated, they get parameter values from `EffectRegistry->getParameter()`, NOT from `pConfig`.
+
+4. **Never sync Registry → pConfig for rendering** - The old pattern of syncing Registry to Config overrides is WRONG. Effects read directly from Registry.
+
+5. **Save writes Registry → file** - When saving config, serialize values FROM EffectRegistry to the config file.
+
+### For ReShade Effects
+
+ReShade effects use specialization constants. The `ReshadeEffect` constructor takes `EffectRegistry*` and reads spec constant values like this:
+
+```cpp
+EffectParam* param = pEffectRegistry->getParameter(effectName, paramName);
+if (auto* fp = dynamic_cast<FloatParam*>(param))
+    value = fp->value;  // Read directly from registry
+```
+
+For Float2/Float3/Float4, vector components share the same parameter name but use an index:
+```cpp
+if (auto* f2p = dynamic_cast<Float2Param*>(param))
+    value = f2p->value[vectorComponentIndex];  // 0 for .x, 1 for .y
+```
+
 ## Architecture Overview
 
 vkBasalt is a **Vulkan implicit layer** that intercepts Vulkan API calls to apply post-processing effects to game graphics.
@@ -52,6 +98,7 @@ The layer intercepts these key Vulkan functions:
 **Global maps** track state by handle:
 - `instanceDispatchMap`, `deviceMap` - Dispatch tables
 - `swapchainMap` - Per-swapchain effect state (LogicalSwapchain)
+- `effectRegistry` - Global registry for effect configurations and parameters
 
 ### Effect Processing Flow
 
@@ -72,7 +119,6 @@ Effects read from one image and write to another. "Fake images" are intermediate
 class Effect {
     virtual void applyEffect(uint32_t imageIndex, VkCommandBuffer commandBuffer) = 0;
     virtual void updateEffect() {}
-    virtual std::vector<EffectParameter> getParameters() const { return {}; }
 };
 ```
 
@@ -84,7 +130,17 @@ class Effect {
 - `effect_deband.cpp` - Color banding reduction
 - `effect_lut.cpp` - 3D color lookup table
 
-**ReShade FX support** (`effect_reshade.cpp`): Compiles .fx shader files using the embedded ReShade compiler (`src/reshade/`).
+**ReShade FX support** (`effect_reshade.cpp`): Compiles .fx shader files using the embedded ReShade compiler (`src/reshade/`). Takes `EffectRegistry*` to read parameter values.
+
+### Parameter System
+
+**EffectParam** hierarchy (`src/effects/params/effect_param.hpp`):
+- `FloatParam` - Single float value
+- `Float2Param` - Two float values (value[0], value[1])
+- `IntParam` - Integer value
+- `BoolParam` - Boolean value
+
+Parameters are stored in `EffectConfig` within `EffectRegistry`. The UI renders these directly and modifies them in-place.
 
 ### Shaders
 
@@ -95,32 +151,29 @@ To add a new shader:
 2. Add to `src/shader/meson.build`
 3. Include generated header in your effect
 
-### Configuration (config.hpp)
+### Configuration
 
-Searches for `vkBasalt.conf` in order:
+Config files are parsed at startup to populate EffectRegistry. After initialization, the registry is the source of truth.
+
+Search order for `vkBasalt.conf`:
 1. `$VKBASALT_CONFIG_FILE`
 2. Game working directory
 3. `~/.config/vkBasalt/`
 4. `/etc/vkBasalt/`
 
-**Hot-reload**: Config changes detected via `hasConfigChanged()`, effects rebuilt automatically.
-
-**Template-based parsing**: `pConfig->getOption<float>("casSharpness", 0.4f)`
-
 ### ImGui Overlay (imgui_overlay.cpp)
 
-In-game UI toggled with End key (configurable). Shows:
-- Active effects list
-- Effect parameters with current values
-- Config file path
-
-Parameters collected via `collectEffectParameters()` in `effect_params.cpp`.
+In-game UI toggled with End key (configurable). The overlay:
+- Reads parameters directly from EffectRegistry
+- Writes changes directly to EffectRegistry
+- Triggers effect reload when Apply is clicked
 
 ### Key Structures
 
 - **LogicalDevice** (`logical_device.hpp`): Wraps VkDevice with dispatch tables and queue info
 - **LogicalSwapchain** (`logical_swapchain.hpp`): Per-swapchain state including effects vector, command buffers, and semaphores
-- **EffectParameter** (`imgui_overlay.hpp`): UI-displayable parameter with name, type, value, and range
+- **EffectRegistry** (`effect_registry.hpp`): **THE** source of truth for effect configs and parameter values
+- **EffectConfig** (`effect_config.hpp`): Per-effect configuration including parameters
 
 ### Input Handling
 
@@ -129,9 +182,10 @@ X11-based keyboard/mouse input (`keyboard_input_x11.cpp`, `mouse_input.cpp`) com
 ## Code Patterns
 
 - **Thread safety**: Global mutex `globalLock` protects all maps
-- **Memory management**: `std::shared_ptr` for LogicalDevice, LogicalSwapchain, Config
+- **Memory management**: `std::shared_ptr` for LogicalDevice, LogicalSwapchain
 - **Format handling**: Always consider SRGB vs UNORM variants (`format.cpp`)
 - **Logging**: Use `Logger::debug()`, `Logger::info()`, `Logger::err()`
+- **Registry access**: Always use `EffectRegistry` for parameter values, never read from Config at runtime
 
 ## Code Style
 
