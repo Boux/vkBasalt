@@ -104,7 +104,15 @@ namespace vkBasalt
                 }
             }
 
+            // Check if effect failed to compile
+            bool effectFailed = pEffectRegistry ? pEffectRegistry->hasEffectFailed(effectName) : false;
+            std::string effectError = effectFailed && pEffectRegistry ? pEffectRegistry->getEffectError(effectName) : "";
+
             // Checkbox to enable/disable effect (read/write via registry)
+            // Disabled for failed effects
+            if (effectFailed)
+                ImGui::BeginDisabled();
+
             bool effectEnabled = pEffectRegistry ? pEffectRegistry->isEffectEnabled(effectName) : true;
             if (ImGui::Checkbox("##enabled", &effectEnabled))
             {
@@ -114,9 +122,20 @@ namespace vkBasalt
                 paramsDirty = true;
                 lastChangeTime = std::chrono::steady_clock::now();
             }
+
+            if (effectFailed)
+                ImGui::EndDisabled();
+
             ImGui::SameLine();
 
-            bool treeOpen = ImGui::TreeNode("effect", "%s", effectName.c_str());
+            // Show failed effects in red
+            if (effectFailed)
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
+
+            bool treeOpen = ImGui::TreeNode("effect", "%s%s", effectName.c_str(), effectFailed ? " (FAILED)" : "");
+
+            if (effectFailed)
+                ImGui::PopStyleColor();
 
             // Drag from tree node header for reordering
             if (ImGui::IsItemActive() && ImGui::IsMouseDragging(0))
@@ -192,6 +211,16 @@ namespace vkBasalt
 
             if (treeOpen)
             {
+                // Show error for failed effects instead of parameters
+                if (effectFailed)
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
+                    ImGui::TextWrapped("Error: %s", effectError.c_str());
+                    ImGui::PopStyleColor();
+                    ImGui::TreePop();
+                    continue;
+                }
+
                 // Find and show parameters for this effect
                 int paramIndex = 0;
                 for (auto& param : editableParams)

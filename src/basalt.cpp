@@ -349,12 +349,13 @@ namespace vkBasalt
                                                     pLogicalSwapchain->fakeImages.begin() + pLogicalSwapchain->imageCount * (i + 2));
             }
 
-            // Check if effect is disabled - if so, use TransferEffect to pass through
+            // Check if effect is disabled or failed - if so, use TransferEffect to pass through
             // Use global effectRegistry as single source of truth
             bool effectEnabled = effectRegistry.isEffectEnabled(effectStrings[i]);
-            if (!effectEnabled)
+            bool effectFailed = effectRegistry.hasEffectFailed(effectStrings[i]);
+            if (!effectEnabled || effectFailed)
             {
-                Logger::debug("effect disabled, using pass-through: " + effectStrings[i]);
+                Logger::debug("effect " + std::string(effectFailed ? "failed" : "disabled") + ", using pass-through: " + effectStrings[i]);
                 pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
                     new TransferEffect(pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
                 continue;
@@ -399,14 +400,24 @@ namespace vkBasalt
             {
                 // Get effect file path from registry (supports instance names like "Cartoon.2")
                 std::string effectPath = effectRegistry.getEffectFilePath(effectStrings[i]);
-                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
-                                                                                               pLogicalSwapchain->format,
-                                                                                               pLogicalSwapchain->imageExtent,
-                                                                                               firstImages,
-                                                                                               secondImages,
-                                                                                               pConfig,
-                                                                                               effectStrings[i],
-                                                                                               effectPath)));
+                try
+                {
+                    pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
+                                                                                                   pLogicalSwapchain->format,
+                                                                                                   pLogicalSwapchain->imageExtent,
+                                                                                                   firstImages,
+                                                                                                   secondImages,
+                                                                                                   pConfig,
+                                                                                                   effectStrings[i],
+                                                                                                   effectPath)));
+                }
+                catch (const std::exception& e)
+                {
+                    Logger::err("Failed to create ReshadeEffect " + effectStrings[i] + ": " + e.what());
+                    effectRegistry.setEffectError(effectStrings[i], e.what());
+                    pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
+                        new TransferEffect(pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
+                }
             }
         }
 
@@ -874,6 +885,16 @@ namespace vkBasalt
             }
             Logger::debug(std::to_string(secondImages.size()) + " images in secondImages");
 
+            // Check if effect is disabled or failed - if so, use TransferEffect to pass through
+            bool effectFailed = effectRegistry.hasEffectFailed(effectStrings[i]);
+            if (effectFailed)
+            {
+                Logger::debug("effect failed, using pass-through: " + effectStrings[i]);
+                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
+                    new TransferEffect(pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
+                continue;
+            }
+
             // Use effectType from registry to handle instance names like "cas.2"
             std::string effectType = effectRegistry.getEffectType(effectStrings[i]);
             if (effectType.empty())
@@ -919,15 +940,25 @@ namespace vkBasalt
             {
                 // Get effect file path from registry (supports instance names like "Cartoon.2")
                 std::string effectPath = effectRegistry.getEffectFilePath(effectStrings[i]);
-                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
-                                                                                               pLogicalSwapchain->format,
-                                                                                               pLogicalSwapchain->imageExtent,
-                                                                                               firstImages,
-                                                                                               secondImages,
-                                                                                               pConfig.get(),
-                                                                                               effectStrings[i],
-                                                                                               effectPath)));
-                Logger::debug("created ReshadeEffect");
+                try
+                {
+                    pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(new ReshadeEffect(pLogicalDevice,
+                                                                                                   pLogicalSwapchain->format,
+                                                                                                   pLogicalSwapchain->imageExtent,
+                                                                                                   firstImages,
+                                                                                                   secondImages,
+                                                                                                   pConfig.get(),
+                                                                                                   effectStrings[i],
+                                                                                                   effectPath)));
+                    Logger::debug("created ReshadeEffect");
+                }
+                catch (const std::exception& e)
+                {
+                    Logger::err("Failed to create ReshadeEffect " + effectStrings[i] + ": " + e.what());
+                    effectRegistry.setEffectError(effectStrings[i], e.what());
+                    pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
+                        new TransferEffect(pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig.get())));
+                }
             }
         }
 

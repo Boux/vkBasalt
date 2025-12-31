@@ -131,6 +131,7 @@ namespace vkBasalt
         void renderConfigManagerView();
         void renderSettingsView(const KeyboardState& keyboard);
         void renderShaderManagerView();
+        void renderShaderTestSection();  // Shader test UI (part of shader manager)
         void renderMainView(const KeyboardState& keyboard);
 
         LogicalDevice* pLogicalDevice;
@@ -157,6 +158,13 @@ namespace vkBasalt
         std::vector<std::string> shaderMgrShaderPaths;
         std::vector<std::string> shaderMgrTexturePaths;
         bool shaderMgrInitialized = false;
+
+        // Shader test state
+        bool shaderTestRunning = false;
+        bool shaderTestComplete = false;
+        size_t shaderTestCurrentIndex = 0;
+        std::vector<std::pair<std::string, std::string>> shaderTestQueue;  // {effectName, filePath}
+        std::vector<std::tuple<std::string, std::string, bool, std::string>> shaderTestResults;  // {name, path, success, error}
 
         // Settings state (editable copies of config values)
         int settingsMaxEffects = 10;

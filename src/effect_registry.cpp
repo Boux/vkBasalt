@@ -213,15 +213,28 @@ namespace vkBasalt
         config.filePath = path;
         config.type = EffectType::ReShade;
         config.enabled = true;
-        config.parameters = parseReshadeEffect(name, path, pConfig);
 
         // Extract effectType from filename (e.g., "/path/to/Clarity.fx" -> "Clarity")
         std::filesystem::path p(path);
         config.effectType = p.stem().string();
 
+        // Test shader compilation first to catch errors
+        ShaderTestResult testResult = testShaderCompilation(name, path);
+        if (!testResult.success)
+        {
+            config.compileError = testResult.errorMessage;
+            config.enabled = false;  // Disable failed effects by default
+            Logger::err("EffectRegistry: failed to compile " + name + ": " + testResult.errorMessage);
+        }
+        else
+        {
+            // Only parse parameters if compilation succeeded
+            config.parameters = parseReshadeEffect(name, path, pConfig);
+            Logger::debug("EffectRegistry: loaded ReShade effect " + name + " with " +
+                          std::to_string(config.parameters.size()) + " parameters");
+        }
+
         effects.push_back(config);
-        Logger::debug("EffectRegistry: loaded ReShade effect " + name + " with " +
-                      std::to_string(config.parameters.size()) + " parameters");
     }
 
     std::vector<EffectConfig> EffectRegistry::getEnabledEffects() const
@@ -406,6 +419,31 @@ namespace vkBasalt
         std::lock_guard<std::mutex> lock(mutex);
         const EffectConfig* effect = findEffect(name);
         return effect ? (effect->type == EffectType::BuiltIn) : false;
+    }
+
+    bool EffectRegistry::hasEffectFailed(const std::string& name) const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        const EffectConfig* effect = findEffect(name);
+        return effect ? effect->hasFailed() : false;
+    }
+
+    std::string EffectRegistry::getEffectError(const std::string& name) const
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        const EffectConfig* effect = findEffect(name);
+        return effect ? effect->compileError : "";
+    }
+
+    void EffectRegistry::setEffectError(const std::string& name, const std::string& error)
+    {
+        std::lock_guard<std::mutex> lock(mutex);
+        EffectConfig* effect = findEffect(name);
+        if (effect)
+        {
+            effect->compileError = error;
+            effect->enabled = false;  // Disable failed effects
+        }
     }
 
     void EffectRegistry::ensureEffect(const std::string& instanceName, const std::string& effectType)

@@ -9,6 +9,15 @@
 
 namespace vkBasalt
 {
+    // Result of testing a shader for compilation errors
+    struct ShaderTestResult
+    {
+        std::string effectName;     // Effect name (filename without extension)
+        std::string filePath;       // Full path to .fx file
+        bool success = false;       // True if shader compiled without errors
+        std::string errorMessage;   // Error message if failed
+    };
+
     // Parse a ReShade .fx file and extract its parameters without creating Vulkan resources.
     // effectName: display name for the effect (used in EffectParameter.effectName)
     // effectPath: full path to the .fx file
@@ -17,6 +26,12 @@ namespace vkBasalt
         const std::string& effectName,
         const std::string& effectPath,
         Config* pConfig);
+
+    // Test a ReShade .fx shader for compilation errors without creating Vulkan resources.
+    // Returns a ShaderTestResult with success status and any error messages.
+    ShaderTestResult testShaderCompilation(
+        const std::string& effectName,
+        const std::string& effectPath);
 
 } // namespace vkBasalt
 

@@ -12,6 +12,13 @@
 
 namespace vkBasalt
 {
+    // Defined in view_shader_test.cpp
+    void renderShaderTestResultsUI(
+        const std::vector<std::tuple<std::string, std::string, bool, std::string>>& results);
+}
+
+namespace vkBasalt
+{
     // Static file browser for adding directories
     static ImGui::FileBrowser dirBrowser(
         ImGuiFileBrowserFlags_SelectDirectory |
@@ -125,6 +132,9 @@ namespace vkBasalt
         ImGui::TextDisabled("(%zu shader paths, %zu texture paths)",
             shaderMgrShaderPaths.size(), shaderMgrTexturePaths.size());
 
+        // Shader test button and progress (implemented in view_shader_test.cpp)
+        renderShaderTestSection();
+
         ImGui::Separator();
 
         // Discovered Shader Paths (collapsible)
@@ -172,6 +182,10 @@ namespace vkBasalt
             }
             ImGui::TreePop();
         }
+
+        // Test Results (collapsible, show after test completes)
+        if (shaderTestComplete)
+            renderShaderTestResultsUI(shaderTestResults);
 
         ImGui::EndChild();
 

@@ -69,6 +69,15 @@ namespace vkBasalt
         // Check if an effect is a built-in effect (by instance name)
         bool isEffectBuiltIn(const std::string& name) const;
 
+        // Check if an effect failed to compile
+        bool hasEffectFailed(const std::string& name) const;
+
+        // Get compilation error for an effect (empty if no error)
+        std::string getEffectError(const std::string& name) const;
+
+        // Set compilation error for an effect (marks it as failed)
+        void setEffectError(const std::string& name, const std::string& error);
+
     private:
         std::vector<EffectConfig> effects;
         Config* pConfig = nullptr;

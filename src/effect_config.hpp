@@ -22,6 +22,8 @@ namespace vkBasalt
         EffectType type = EffectType::BuiltIn;
         bool enabled = true;
         std::vector<EffectParameter> parameters;
+        std::string compileError;  // Empty if compiled successfully, error message if failed
+        bool hasFailed() const { return !compileError.empty(); }
     };
 
 } // namespace vkBasalt

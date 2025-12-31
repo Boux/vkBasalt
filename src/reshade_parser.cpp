@@ -225,4 +225,80 @@ namespace vkBasalt
         return params;
     }
 
+    ShaderTestResult testShaderCompilation(
+        const std::string& effectName,
+        const std::string& effectPath)
+    {
+        ShaderTestResult result;
+        result.effectName = effectName;
+        result.filePath = effectPath;
+
+        try
+        {
+            // Setup preprocessor with include paths
+            reshadefx::preprocessor preprocessor;
+            setupPreprocessor(preprocessor);
+
+            // Try to load and preprocess the file
+            if (!preprocessor.append_file(effectPath))
+            {
+                result.success = false;
+                result.errorMessage = "Failed to load shader file";
+                std::string ppErrors = preprocessor.errors();
+                if (!ppErrors.empty())
+                    result.errorMessage += ": " + ppErrors;
+                return result;
+            }
+
+            // Check for preprocessor errors
+            std::string ppErrors = preprocessor.errors();
+            if (!ppErrors.empty())
+            {
+                result.success = false;
+                result.errorMessage = "Preprocessor errors: " + ppErrors;
+                return result;
+            }
+
+            // Try to parse the shader
+            reshadefx::parser parser;
+            auto codegen = std::unique_ptr<reshadefx::codegen>(
+                reshadefx::create_codegen_spirv(true, true, true, true));
+
+            if (!parser.parse(std::move(preprocessor.output()), codegen.get()))
+            {
+                result.success = false;
+                result.errorMessage = "Parse errors: " + parser.errors();
+                return result;
+            }
+
+            // Check for parse warnings/errors
+            std::string parseErrors = parser.errors();
+            if (!parseErrors.empty())
+            {
+                // Some shaders have warnings but still work
+                result.success = true;
+                result.errorMessage = "Warnings: " + parseErrors;
+                return result;
+            }
+
+            // Try to generate code
+            reshadefx::module module;
+            codegen->write_result(module);
+
+            result.success = true;
+        }
+        catch (const std::exception& e)
+        {
+            result.success = false;
+            result.errorMessage = "Exception: " + std::string(e.what());
+        }
+        catch (...)
+        {
+            result.success = false;
+            result.errorMessage = "Unknown exception during compilation";
+        }
+
+        return result;
+    }
+
 } // namespace vkBasalt
