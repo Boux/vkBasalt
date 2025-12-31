@@ -6,11 +6,11 @@
 
 #include "reshade_parser.hpp"
 #include "config_serializer.hpp"
+#include "builtin_effects.hpp"
 #include "logger.hpp"
 
 namespace vkBasalt
 {
-    static const std::vector<std::string> builtInEffects = {"cas", "dls", "fxaa", "smaa", "deband", "lut"};
 
     namespace
     {
@@ -85,7 +85,7 @@ namespace vkBasalt
 
     bool EffectRegistry::isBuiltInEffect(const std::string& name)
     {
-        return std::find(builtInEffects.begin(), builtInEffects.end(), name) != builtInEffects.end();
+        return BuiltInEffects::instance().isBuiltIn(name);
     }
 
     void EffectRegistry::initialize(Config* pConfig)
@@ -138,66 +138,34 @@ namespace vkBasalt
 
     void EffectRegistry::initBuiltInEffect(const std::string& instanceName, const std::string& effectType)
     {
+        const auto* def = BuiltInEffects::instance().getDef(effectType);
+        if (!def)
+        {
+            Logger::err("Unknown built-in effect type: " + effectType);
+            return;
+        }
+
         EffectConfig config;
         config.name = instanceName;
         config.effectType = effectType;
         config.type = EffectType::BuiltIn;
         config.enabled = true;
 
-        // Use effectType to determine params, but instanceName for param lookups
-        if (effectType == "cas")
+        // Create parameters from centralized definitions
+        for (const auto& paramDef : def->params)
         {
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "casSharpness", "Sharpness", 0.4f, 0.0f, 1.0f, pConfig));
-        }
-        else if (effectType == "dls")
-        {
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "dlsSharpness", "Sharpness", 0.5f, 0.0f, 1.0f, pConfig));
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "dlsDenoise", "Denoise", 0.17f, 0.0f, 1.0f, pConfig));
-        }
-        else if (effectType == "fxaa")
-        {
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "fxaaQualitySubpix", "Quality Subpix", 0.75f, 0.0f, 1.0f, pConfig));
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "fxaaQualityEdgeThreshold", "Edge Threshold", 0.125f, 0.0f, 0.5f, pConfig));
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "fxaaQualityEdgeThresholdMin", "Edge Threshold Min", 0.0312f, 0.0f, 0.1f, pConfig));
-        }
-        else if (effectType == "smaa")
-        {
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "smaaThreshold", "Threshold", 0.05f, 0.0f, 0.5f, pConfig));
-            config.parameters.push_back(
-                makeIntParam(instanceName, "smaaMaxSearchSteps", "Max Search Steps", 32, 0, 112, pConfig));
-            config.parameters.push_back(
-                makeIntParam(instanceName, "smaaMaxSearchStepsDiag", "Max Search Steps Diag", 16, 0, 20, pConfig));
-            config.parameters.push_back(
-                makeIntParam(instanceName, "smaaCornerRounding", "Corner Rounding", 25, 0, 100, pConfig));
-        }
-        else if (effectType == "deband")
-        {
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "debandAvgdiff", "Avg Diff", 3.4f, 0.0f, 255.0f, pConfig));
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "debandMaxdiff", "Max Diff", 6.8f, 0.0f, 255.0f, pConfig));
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "debandMiddiff", "Mid Diff", 3.3f, 0.0f, 255.0f, pConfig));
-            config.parameters.push_back(
-                makeFloatParam(instanceName, "debandRange", "Range", 16.0f, 1.0f, 64.0f, pConfig));
-            config.parameters.push_back(
-                makeIntParam(instanceName, "debandIterations", "Iterations", 4, 1, 16, pConfig));
-        }
-        else if (effectType == "lut")
-        {
-            auto p = std::make_unique<FloatParam>();
-            p->effectName = instanceName;
-            p->name = "lutFile";
-            p->label = "LUT File";
-            p->value = 0;
-            config.parameters.push_back(std::move(p));
+            if (paramDef.type == ParamType::Float)
+            {
+                config.parameters.push_back(
+                    makeFloatParam(instanceName, paramDef.name, paramDef.label,
+                                   paramDef.defaultFloat, paramDef.minFloat, paramDef.maxFloat, pConfig));
+            }
+            else if (paramDef.type == ParamType::Int)
+            {
+                config.parameters.push_back(
+                    makeIntParam(instanceName, paramDef.name, paramDef.label,
+                                 paramDef.defaultInt, paramDef.minInt, paramDef.maxInt, pConfig));
+            }
         }
 
         effects.push_back(std::move(config));

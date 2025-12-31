@@ -36,16 +36,10 @@
 #include "logger.hpp"
 
 #include "effect.hpp"
-#include "effect_fxaa.hpp"
-#include "effect_cas.hpp"
-#include "effect_dls.hpp"
-#include "effect_smaa.hpp"
-#include "effect_deband.hpp"
-#include "effect_lut.hpp"
 #include "effect_reshade.hpp"
 #include "effect_transfer.hpp"
+#include "builtin_effects.hpp"
 #include "imgui_overlay.hpp"
-#include "effect_params.hpp"
 #include "effect_registry.hpp"
 
 #define VKBASALT_NAME "VK_LAYER_VKBASALT_post_processing"
@@ -436,35 +430,12 @@ namespace vkBasalt
                 effectType = effectStrings[i];
 
             // Create the appropriate effect type
-            if (effectType == "fxaa")
+            const auto* def = BuiltInEffects::instance().getDef(effectType);
+            if (def)
             {
-                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
-                    new FxaaEffect(pLogicalDevice, srgbFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
-            }
-            else if (effectType == "cas")
-            {
-                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
-                    new CasEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
-            }
-            else if (effectType == "deband")
-            {
-                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
-                    new DebandEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
-            }
-            else if (effectType == "smaa")
-            {
-                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
-                    new SmaaEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
-            }
-            else if (effectType == "lut")
-            {
-                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
-                    new LutEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
-            }
-            else if (effectType == "dls")
-            {
-                pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
-                    new DlsEffect(pLogicalDevice, unormFormat, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
+                VkFormat format = def->usesSrgbFormat ? srgbFormat : unormFormat;
+                pLogicalSwapchain->effects.push_back(
+                    def->factory(pLogicalDevice, format, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig));
             }
             else
             {

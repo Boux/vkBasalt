@@ -27,6 +27,7 @@ overlay_src = [
 vkBasalt_src = [
     'basalt.cpp',
     'buffer.cpp',
+    'builtin_effects.cpp',
     'command_buffer.cpp',
     'config.cpp',
     'config_serializer.cpp',
@@ -37,7 +38,6 @@ vkBasalt_src = [
     'effect_dls.cpp',
     'effect_fxaa.cpp',
     'effect_lut.cpp',
-    'effect_params.cpp',
     'effect_registry.cpp',
     'effect_reshade.cpp',
     'reshade_parser.cpp',

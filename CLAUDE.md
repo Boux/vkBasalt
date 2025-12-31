@@ -167,4 +167,4 @@ X11-based keyboard/mouse input (`keyboard_input_x11.cpp`, `mouse_input.cpp`) com
 ## User Preferences
 
 - **File organization**: Proactively suggest splitting code into separate files when a file gets too large or a distinct responsibility emerges. Always inform the user before refactoring.
-- **After meson reconfigure (debug only)**: During development, the `vkBasalt.json` library_path may revert to relative path. For local testing, fix to absolute path: `/home/boux/repo/vkBasalt/build/src/libvkbasalt.so`. This is not needed for actual builds/releases.
+- **After meson reconfigure (debug only)**: During development, the `build/config/vkBasalt.json` library_path may revert to relative path. Manually edit `build/config/vkBasalt.json` to fix `library_path` to absolute path: `/home/boux/repo/vkBasalt/build/src/libvkbasalt.so`. This is not needed for actual builds/releases.
