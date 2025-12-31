@@ -9,7 +9,22 @@ namespace vkBasalt
 {
     void ImGuiOverlay::renderSettingsView(const KeyboardState& keyboard)
     {
-        ImGui::BeginChild("SettingsContent", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), false);
+        // Helper to save settings (auto-save on any change)
+        auto saveSettings = [&]() {
+            VkBasaltSettings newSettings;
+            newSettings.maxEffects = settingsMaxEffects;
+            newSettings.overlayBlockInput = settingsBlockInput;
+            newSettings.toggleKey = settingsToggleKey;
+            newSettings.reloadKey = settingsReloadKey;
+            newSettings.overlayKey = settingsOverlayKey;
+            newSettings.enableOnLaunch = settingsEnableOnLaunch;
+            newSettings.depthCapture = settingsDepthCapture;
+            newSettings.autoApplyDelay = settingsAutoApplyDelay;
+            ConfigSerializer::saveSettings(newSettings);
+            settingsSaved = true;
+        };
+
+        ImGui::BeginChild("SettingsContent", ImVec2(0, 0), false);
 
         ImGui::Text("Key Bindings");
         ImGui::Separator();
@@ -29,9 +44,7 @@ namespace vkBasalt
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.4f, 0.1f, 1.0f));
 
             if (ImGui::Button(buttonText, ImVec2(100, 0)))
-            {
-                listeningForKey = isListening ? 0 : bindingId;  // Toggle listening
-            }
+                listeningForKey = isListening ? 0 : bindingId;
 
             if (isListening)
                 ImGui::PopStyleColor();
@@ -42,6 +55,7 @@ namespace vkBasalt
                 strncpy(keyBuffer, keyboard.lastKeyName.c_str(), bufSize - 1);
                 keyBuffer[bufSize - 1] = '\0';
                 listeningForKey = 0;
+                saveSettings();
             }
         };
 
@@ -56,7 +70,8 @@ namespace vkBasalt
         ImGui::Text("Overlay Options");
         ImGui::Separator();
 
-        ImGui::Checkbox("Block Input When Overlay Open", &settingsBlockInput);
+        if (ImGui::Checkbox("Block Input When Overlay Open", &settingsBlockInput))
+            saveSettings();
         if (ImGui::IsItemHovered())
         {
             ImGui::BeginTooltip();
@@ -70,7 +85,8 @@ namespace vkBasalt
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Maximum number of effects that can be active simultaneously.\nChanges require restarting the application.");
         ImGui::SetNextItemWidth(100);
-        ImGui::InputInt("##maxEffects", &settingsMaxEffects);
+        if (ImGui::InputInt("##maxEffects", &settingsMaxEffects))
+            saveSettings();
         if (settingsMaxEffects < 1) settingsMaxEffects = 1;
         if (settingsMaxEffects > 50) settingsMaxEffects = 50;
 
@@ -79,36 +95,24 @@ namespace vkBasalt
             ImGui::SetTooltip("Delay before automatically applying parameter changes.\nLower values feel more responsive, higher values reduce stutter.");
         ImGui::SetNextItemWidth(150);
         ImGui::SliderInt("##autoApplyDelay", &settingsAutoApplyDelay, 20, 1000, "%d ms");
+        if (ImGui::IsItemDeactivatedAfterEdit())
+            saveSettings();
 
         ImGui::Spacing();
         ImGui::Text("Startup Behavior");
         ImGui::Separator();
 
-        ImGui::Checkbox("Enable Effects on Launch", &settingsEnableOnLaunch);
+        if (ImGui::Checkbox("Enable Effects on Launch", &settingsEnableOnLaunch))
+            saveSettings();
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("If enabled, effects are active when the game starts.\nIf disabled, effects start off and must be toggled on.");
 
-        ImGui::Checkbox("Depth Capture (requires restart)", &settingsDepthCapture);
+        if (ImGui::Checkbox("Depth Capture (requires restart)", &settingsDepthCapture))
+            saveSettings();
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Enable depth buffer capture for effects that use depth.\nMay impact performance. Most effects don't need this.\nChanges require restarting the application.");
 
         ImGui::EndChild();
-
-        // Footer button
-        if (ImGui::Button("Save"))
-        {
-            VkBasaltSettings newSettings;
-            newSettings.maxEffects = settingsMaxEffects;
-            newSettings.overlayBlockInput = settingsBlockInput;
-            newSettings.toggleKey = settingsToggleKey;
-            newSettings.reloadKey = settingsReloadKey;
-            newSettings.overlayKey = settingsOverlayKey;
-            newSettings.enableOnLaunch = settingsEnableOnLaunch;
-            newSettings.depthCapture = settingsDepthCapture;
-            newSettings.autoApplyDelay = settingsAutoApplyDelay;
-            ConfigSerializer::saveSettings(newSettings);
-            settingsSaved = true;  // Signal basalt.cpp to reload keybindings
-        }
     }
 
 } // namespace vkBasalt
