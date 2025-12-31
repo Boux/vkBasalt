@@ -336,17 +336,37 @@ namespace vkBasalt
             if (pEffectRegistry)
             {
                 auto& defs = pEffectRegistry->getPreprocessorDefs(effectName);
-                if (!defs.empty() && ImGui::TreeNode("preprocessor", "Preprocessor (%zu)", defs.size()))
+                if (!defs.empty())
                 {
-                    ImGui::TextDisabled("Click Apply or press %s to recompile", settingsReloadKey);
+                    // Draw background rect behind preprocessor section using channels
+                    ImVec2 startPos = ImGui::GetCursorScreenPos();
+                    float contentWidth = ImGui::GetContentRegionAvail().x;
+                    ImDrawList* drawList = ImGui::GetWindowDrawList();
+                    drawList->ChannelsSplit(2);
+                    drawList->ChannelsSetCurrent(1);  // Foreground for content
 
-                    for (size_t defIdx = 0; defIdx < defs.size(); defIdx++)
+                    if (ImGui::TreeNode("preprocessor", "Preprocessor (%zu)", defs.size()))
                     {
-                        ImGui::PushID(static_cast<int>(defIdx + 1000));
-                        renderPreprocessorDef(defs[defIdx], pEffectRegistry, effectName);
-                        ImGui::PopID();
+                        ImGui::TextDisabled("Click Apply or press %s to recompile", settingsReloadKey);
+
+                        for (size_t defIdx = 0; defIdx < defs.size(); defIdx++)
+                        {
+                            ImGui::PushID(static_cast<int>(defIdx + 1000));
+                            renderPreprocessorDef(defs[defIdx], pEffectRegistry, effectName);
+                            ImGui::PopID();
+                        }
+                        ImGui::TreePop();
                     }
-                    ImGui::TreePop();
+
+                    // Draw background rect on channel 0 (behind content)
+                    ImVec2 endPos = ImGui::GetCursorScreenPos();
+                    drawList->ChannelsSetCurrent(0);  // Background
+                    drawList->AddRectFilled(
+                        startPos,
+                        ImVec2(startPos.x + contentWidth, endPos.y),
+                        IM_COL32(0, 0, 0, 128),  // 50% opacity black
+                        0.0f);
+                    drawList->ChannelsMerge();
                 }
             }
 
