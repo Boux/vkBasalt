@@ -22,7 +22,7 @@ Feature showcase: https://www.youtube.com/watch?v=_KJTToAynr0
 
 - Mouse input can be weird in some games (especially first person shooters or games that hide your cursor). It will sometimes lock the cursor to the middle of the screen and you have to pause the game or open a menu to be able to use the mouse. Also be careful not to accidentally click things behind the overlay! I am not sure how to fix this issue, there is a really bad workaround that you can enable in the settings where it just force-grabs the cursor with X11 calls, but it's janky as hell. If anybody got any ideas I'm listening.
 
-## Features (vs Upstream vkBasalt)
+## Features
 
 Upstream requires editing config files and restarting. This fork adds:
 
@@ -38,7 +38,11 @@ Upstream requires editing config files and restarting. This fork adds:
 - **Graceful error handling** - failed effects show errors instead of crashing
 
 ### ReShade Support
-Use ReShade FX shaders from the [reshade-shaders repository](https://github.com/crosire/reshade-shaders) or custom shaders.
+
+Try downloading shaders from these sources
+- https://github.com/crosire/reshade-shaders
+- https://github.com/HelelSingh/CRT-Guest-ReShade
+- https://github.com/kevinlekiller/reshade-steam-proton
 
 ## Installation
 
