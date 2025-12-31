@@ -1,6 +1,7 @@
 #include "effect_lut.hpp"
 
 #include <cstring>
+#include <stdexcept>
 
 #include "image_view.hpp"
 #include "descriptor_set.hpp"
@@ -31,23 +32,37 @@ namespace vkBasalt
 
         std::string lutFile = pConfig->getOption<std::string>("lutFile");
 
-        int      height;
+        if (lutFile.empty())
+        {
+            throw std::runtime_error("LUT effect requires 'lutFile' to be set in config");
+        }
+
+        int      height = 0;
         LutCube  lutCube;
-        stbi_uc* pixels;
+        stbi_uc* pixels = nullptr;
         int32_t  usingPNG = (int32_t)(lutFile.find(".cube") == std::string::npos && lutFile.find(".CUBE") == std::string::npos);
         if (!usingPNG)
         {
             lutCube = LutCube(lutFile);
             pixels  = lutCube.colorCube.data();
             height  = lutCube.size;
+            if (height == 0 || pixels == nullptr)
+            {
+                throw std::runtime_error("Failed to load LUT cube file: " + lutFile);
+            }
         }
         else
         {
             int channels, width;
             pixels = stbi_load(lutFile.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+            if (pixels == nullptr)
+            {
+                throw std::runtime_error("Failed to load LUT image file: " + lutFile);
+            }
             if (width != height * height)
             {
-                Logger::err("bad lut");
+                stbi_image_free(pixels);
+                throw std::runtime_error("Invalid LUT image dimensions (width must equal height*height): " + lutFile);
             }
         }
 
@@ -110,6 +125,10 @@ namespace vkBasalt
     }
     LutEffect::~LutEffect()
     {
+        // Skip cleanup if init() was never called (e.g., constructor threw exception)
+        if (!pLogicalDevice)
+            return;
+
         pLogicalDevice->vkd.DestroyImageView(pLogicalDevice->device, lutImageView, nullptr);
         pLogicalDevice->vkd.DestroyImage(pLogicalDevice->device, lutImage, nullptr);
         pLogicalDevice->vkd.DestroyDescriptorSetLayout(pLogicalDevice->device, lutDescriptorSetLayout, nullptr);

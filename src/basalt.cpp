@@ -424,9 +424,20 @@ namespace vkBasalt
             const auto* def = BuiltInEffects::instance().getDef(effectType);
             if (def)
             {
-                VkFormat format = def->usesSrgbFormat ? srgbFormat : unormFormat;
-                pLogicalSwapchain->effects.push_back(
-                    def->factory(pLogicalDevice, format, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig));
+                // Wrap built-in effect creation in try-catch to handle failures gracefully
+                try
+                {
+                    VkFormat format = def->usesSrgbFormat ? srgbFormat : unormFormat;
+                    pLogicalSwapchain->effects.push_back(
+                        def->factory(pLogicalDevice, format, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig));
+                }
+                catch (const std::exception& e)
+                {
+                    Logger::err("Failed to create built-in effect " + effectStrings[i] + ": " + e.what());
+                    effectRegistry.setEffectError(effectStrings[i], e.what());
+                    pLogicalSwapchain->effects.push_back(std::shared_ptr<Effect>(
+                        new TransferEffect(pLogicalDevice, pLogicalSwapchain->format, pLogicalSwapchain->imageExtent, firstImages, secondImages, pConfig)));
+                }
             }
             else
             {
