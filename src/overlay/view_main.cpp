@@ -165,6 +165,15 @@ namespace vkBasalt
             insertPosition = -1;  // Append to end
             pendingAddEffects.clear();
         }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(selectedEffects.empty());
+        if (ImGui::Button("Clear All"))
+        {
+            selectedEffects.clear();
+            applyRequested = true;
+            saveToPersistentState();
+        }
+        ImGui::EndDisabled();
         ImGui::Separator();
 
         // Scrollable effect list (reserve space for footer controls)
@@ -320,7 +329,7 @@ namespace vkBasalt
                 auto& defs = pEffectRegistry->getPreprocessorDefs(effectName);
                 if (!defs.empty() && ImGui::TreeNode("preprocessor", "Preprocessor (%zu)", defs.size()))
                 {
-                    ImGui::TextDisabled("Apply or %s to recompile", settingsReloadKey);
+                    ImGui::TextDisabled("Click Apply or press %s to recompile", settingsReloadKey);
 
                     for (size_t defIdx = 0; defIdx < defs.size(); defIdx++)
                     {
