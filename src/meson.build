@@ -18,6 +18,10 @@ overlay_src = [
     'overlay/view_shader_manager.cpp',
     'overlay/view_shader_test.cpp',
     'overlay/view_main.cpp',
+    'overlay/params/field_editor.cpp',
+    'overlay/params/fields/field_bool.cpp',
+    'overlay/params/fields/field_float.cpp',
+    'overlay/params/fields/field_int.cpp',
 ]
 
 vkBasalt_src = [
