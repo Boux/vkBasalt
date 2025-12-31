@@ -3,6 +3,7 @@
 #include "logger.hpp"
 
 #include <filesystem>
+#include <set>
 
 #include "imgui/imgui.h"
 
@@ -47,7 +48,9 @@ namespace vkBasalt
                 shaderTestResults.clear();
                 shaderTestCurrentIndex = 0;
                 shaderTestComplete = false;
+                shaderTestDuplicateCount = 0;
 
+                std::set<std::string> seenNames;
                 for (const auto& shaderPath : shaderMgrShaderPaths)
                 {
                     try
@@ -59,7 +62,15 @@ namespace vkBasalt
                             std::string ext = entry.path().extension().string();
                             if (ext != ".fx" && ext != ".FX")
                                 continue;
+
                             std::string effectName = entry.path().stem().string();
+                            // Skip duplicates (first occurrence wins)
+                            if (seenNames.count(effectName))
+                            {
+                                shaderTestDuplicateCount++;
+                                continue;
+                            }
+                            seenNames.insert(effectName);
                             shaderTestQueue.emplace_back(effectName, entry.path().string());
                         }
                     }
@@ -92,6 +103,14 @@ namespace vkBasalt
                 ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "All %d passed!", passCount);
             else
                 ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.3f, 1.0f), "%d passed, %d failed", passCount, failCount);
+
+            // Show duplicate warning if any were skipped
+            if (shaderTestDuplicateCount > 0)
+            {
+                ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.3f, 1.0f), "(%d duplicates skipped)", shaderTestDuplicateCount);
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Shaders with the same name found in multiple paths.\nFirst occurrence was tested, others were skipped.");
+            }
         }
     }
 
@@ -126,7 +145,8 @@ namespace vkBasalt
                         continue;
 
                     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f));
-                    if (ImGui::TreeNode(name.c_str(), "%s", name.c_str()))
+                    // Use path as unique ID to avoid conflicts with duplicate names
+                    if (ImGui::TreeNode(path.c_str(), "%s", name.c_str()))
                     {
                         ImGui::PopStyleColor();
                         ImGui::TextDisabled("Path: %s", path.c_str());
