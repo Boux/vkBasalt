@@ -114,6 +114,62 @@ namespace vkBasalt
     ResizeDebounceState resizeDebounce;
     constexpr int64_t RESIZE_DEBOUNCE_MS = 200;
 
+    // Helper struct for depth image state
+    struct DepthState
+    {
+        VkImageView imageView = VK_NULL_HANDLE;
+        VkImage image = VK_NULL_HANDLE;
+        VkFormat format = VK_FORMAT_UNDEFINED;
+    };
+
+    // Get depth state from logical device (returns null handles if no depth images)
+    DepthState getDepthState(LogicalDevice* pLogicalDevice)
+    {
+        DepthState state;
+        if (!pLogicalDevice->depthImageViews.empty())
+        {
+            state.imageView = pLogicalDevice->depthImageViews[0];
+            state.image = pLogicalDevice->depthImages[0];
+            state.format = pLogicalDevice->depthFormats[0];
+        }
+        return state;
+    }
+
+    // Helper to reallocate and rewrite command buffers for a swapchain
+    void reallocateCommandBuffers(
+        LogicalDevice* pLogicalDevice,
+        LogicalSwapchain* pLogicalSwapchain,
+        const DepthState& depth)
+    {
+        // Free existing command buffers
+        if (!pLogicalSwapchain->commandBuffersEffect.empty())
+        {
+            pLogicalDevice->vkd.FreeCommandBuffers(
+                pLogicalDevice->device, pLogicalDevice->commandPool,
+                pLogicalSwapchain->commandBuffersEffect.size(),
+                pLogicalSwapchain->commandBuffersEffect.data());
+        }
+        if (!pLogicalSwapchain->commandBuffersNoEffect.empty())
+        {
+            pLogicalDevice->vkd.FreeCommandBuffers(
+                pLogicalDevice->device, pLogicalDevice->commandPool,
+                pLogicalSwapchain->commandBuffersNoEffect.size(),
+                pLogicalSwapchain->commandBuffersNoEffect.data());
+        }
+
+        // Allocate and write effect command buffers
+        pLogicalSwapchain->commandBuffersEffect = allocateCommandBuffer(pLogicalDevice, pLogicalSwapchain->imageCount);
+        writeCommandBuffers(pLogicalDevice, pLogicalSwapchain->effects,
+                           depth.image, depth.imageView, depth.format,
+                           pLogicalSwapchain->commandBuffersEffect);
+
+        // Allocate and write no-effect command buffers
+        pLogicalSwapchain->commandBuffersNoEffect = allocateCommandBuffer(pLogicalDevice, pLogicalSwapchain->imageCount);
+        writeCommandBuffers(pLogicalDevice, {pLogicalSwapchain->defaultTransfer},
+                           VK_NULL_HANDLE, VK_NULL_HANDLE, VK_FORMAT_UNDEFINED,
+                           pLogicalSwapchain->commandBuffersNoEffect);
+    }
+
     // Initialize configs: base (vkBasalt.conf) + current (from env/default_config)
     void initConfigs()
     {
@@ -410,13 +466,7 @@ namespace vkBasalt
         // Wait for GPU to finish
         pLogicalDevice->vkd.QueueWaitIdle(pLogicalDevice->queue);
 
-        // Free command buffers
-        pLogicalDevice->vkd.FreeCommandBuffers(
-            pLogicalDevice->device, pLogicalDevice->commandPool, pLogicalSwapchain->commandBuffersEffect.size(), pLogicalSwapchain->commandBuffersEffect.data());
-        pLogicalDevice->vkd.FreeCommandBuffers(
-            pLogicalDevice->device, pLogicalDevice->commandPool, pLogicalSwapchain->commandBuffersNoEffect.size(), pLogicalSwapchain->commandBuffersNoEffect.data());
-
-        // Clear effects
+        // Clear effects (command buffers will be freed by reallocateCommandBuffers)
         pLogicalSwapchain->effects.clear();
         pLogicalSwapchain->defaultTransfer.reset();
 
@@ -440,15 +490,7 @@ namespace vkBasalt
         // Create effects using centralized helper
         createEffectsForSwapchain(pLogicalSwapchain, pLogicalDevice, pConfig, effectStrings, true);
 
-        VkImageView depthImageView = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthImageViews[0] : VK_NULL_HANDLE;
-        VkImage     depthImage     = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthImages[0] : VK_NULL_HANDLE;
-        VkFormat    depthFormat    = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthFormats[0] : VK_FORMAT_UNDEFINED;
-
-        // Allocate and write new command buffers
-        pLogicalSwapchain->commandBuffersEffect = allocateCommandBuffer(pLogicalDevice, pLogicalSwapchain->imageCount);
-        writeCommandBuffers(
-            pLogicalDevice, pLogicalSwapchain->effects, depthImage, depthImageView, depthFormat, pLogicalSwapchain->commandBuffersEffect);
-
+        // Create default transfer effect (needed for no-effect command buffers)
         pLogicalSwapchain->defaultTransfer = std::shared_ptr<Effect>(new TransferEffect(
             pLogicalDevice,
             pLogicalSwapchain->format,
@@ -457,13 +499,9 @@ namespace vkBasalt
             pLogicalSwapchain->images,
             pConfig));
 
-        pLogicalSwapchain->commandBuffersNoEffect = allocateCommandBuffer(pLogicalDevice, pLogicalSwapchain->imageCount);
-        writeCommandBuffers(pLogicalDevice,
-                            {pLogicalSwapchain->defaultTransfer},
-                            VK_NULL_HANDLE,
-                            VK_NULL_HANDLE,
-                            VK_FORMAT_UNDEFINED,
-                            pLogicalSwapchain->commandBuffersNoEffect);
+        // Free old command buffers and allocate/write new ones
+        DepthState depth = getDepthState(pLogicalDevice);
+        reallocateCommandBuffers(pLogicalDevice, pLogicalSwapchain, depth);
 
         Logger::info("effects reloaded successfully");
     }
@@ -861,9 +899,7 @@ namespace vkBasalt
             createEffectsForSwapchain(pLogicalSwapchain, pLogicalDevice, pConfig.get(), effectStrings, false);
         }
 
-        VkImageView depthImageView = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthImageViews[0] : VK_NULL_HANDLE;
-        VkImage     depthImage     = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthImages[0] : VK_NULL_HANDLE;
-        VkFormat    depthFormat    = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthFormats[0] : VK_FORMAT_UNDEFINED;
+        DepthState depth = getDepthState(pLogicalDevice);
 
         Logger::debug("effect string count: " + std::to_string(effectStrings.size()));
         Logger::debug("effect count: " + std::to_string(pLogicalSwapchain->effects.size()));
@@ -873,7 +909,7 @@ namespace vkBasalt
                       + convertToString(swapchain));
 
         writeCommandBuffers(
-            pLogicalDevice, pLogicalSwapchain->effects, depthImage, depthImageView, depthFormat, pLogicalSwapchain->commandBuffersEffect);
+            pLogicalDevice, pLogicalSwapchain->effects, depth.image, depth.imageView, depth.format, pLogicalSwapchain->commandBuffersEffect);
         Logger::debug("wrote CommandBuffers");
 
         pLogicalSwapchain->semaphores = createSemaphores(pLogicalDevice, pLogicalSwapchain->imageCount);
@@ -1356,33 +1392,30 @@ namespace vkBasalt
                 }
                 pLogicalDevice->depthFormats.erase(pLogicalDevice->depthFormats.begin() + i);
 
-                VkImageView depthImageView = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthImageViews[0] : VK_NULL_HANDLE;
-                VkImage     depthImage     = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthImages[0] : VK_NULL_HANDLE;
-                VkFormat    depthFormat    = pLogicalDevice->depthImageViews.size() ? pLogicalDevice->depthFormats[0] : VK_FORMAT_UNDEFINED;
+                DepthState depth = getDepthState(pLogicalDevice);
                 for (auto& it : swapchainMap)
                 {
                     LogicalSwapchain* pLogicalSwapchain = it.second.get();
-                    if (pLogicalSwapchain->pLogicalDevice == pLogicalDevice)
-                    {
-                        if (pLogicalSwapchain->commandBuffersEffect.size())
-                        {
-                            pLogicalDevice->vkd.FreeCommandBuffers(pLogicalDevice->device,
-                                                                   pLogicalDevice->commandPool,
-                                                                   pLogicalSwapchain->commandBuffersEffect.size(),
-                                                                   pLogicalSwapchain->commandBuffersEffect.data());
-                            pLogicalSwapchain->commandBuffersEffect.clear();
-                            pLogicalSwapchain->commandBuffersEffect = allocateCommandBuffer(pLogicalDevice, pLogicalSwapchain->imageCount);
-                            Logger::debug("allocated CommandBuffers for swapchain " + convertToString(it.first));
+                    if (pLogicalSwapchain->pLogicalDevice != pLogicalDevice)
+                        continue;
+                    if (pLogicalSwapchain->commandBuffersEffect.empty())
+                        continue;
 
-                            writeCommandBuffers(pLogicalDevice,
-                                                pLogicalSwapchain->effects,
-                                                depthImage,
-                                                depthImageView,
-                                                depthFormat,
-                                                pLogicalSwapchain->commandBuffersEffect);
-                            Logger::debug("wrote CommandBuffers");
-                        }
-                    }
+                    pLogicalDevice->vkd.FreeCommandBuffers(pLogicalDevice->device,
+                                                           pLogicalDevice->commandPool,
+                                                           pLogicalSwapchain->commandBuffersEffect.size(),
+                                                           pLogicalSwapchain->commandBuffersEffect.data());
+                    pLogicalSwapchain->commandBuffersEffect.clear();
+                    pLogicalSwapchain->commandBuffersEffect = allocateCommandBuffer(pLogicalDevice, pLogicalSwapchain->imageCount);
+                    Logger::debug("allocated CommandBuffers for swapchain " + convertToString(it.first));
+
+                    writeCommandBuffers(pLogicalDevice,
+                                        pLogicalSwapchain->effects,
+                                        depth.image,
+                                        depth.imageView,
+                                        depth.format,
+                                        pLogicalSwapchain->commandBuffersEffect);
+                    Logger::debug("wrote CommandBuffers");
                 }
             }
         }
