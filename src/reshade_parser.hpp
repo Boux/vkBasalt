@@ -3,9 +3,10 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
-#include "imgui_overlay.hpp"
 #include "effect_config.hpp"
+#include "effect_param.hpp"
 #include "config.hpp"
 
 namespace vkBasalt
@@ -20,10 +21,10 @@ namespace vkBasalt
     };
 
     // Parse a ReShade .fx file and extract its parameters without creating Vulkan resources.
-    // effectName: display name for the effect (used in EffectParameter.effectName)
+    // effectName: display name for the effect (used in EffectParam.effectName)
     // effectPath: full path to the .fx file
     // pConfig: config for getting includePath and current param values
-    std::vector<EffectParameter> parseReshadeEffect(
+    std::vector<std::unique_ptr<EffectParam>> parseReshadeEffect(
         const std::string& effectName,
         const std::string& effectPath,
         Config* pConfig);

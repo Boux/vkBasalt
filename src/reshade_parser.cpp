@@ -86,81 +86,100 @@ namespace vkBasalt
                 pp.add_include_path(path);
         }
 
-        void applyFloatRange(EffectParameter& p, const auto& annotations)
+        void applyFloatRange(FloatParam& p, const auto& annotations)
         {
             auto minIt = findAnnotation(annotations, "ui_min");
             auto maxIt = findAnnotation(annotations, "ui_max");
 
             if (minIt != annotations.end())
-                p.minFloat = getAnnotationFloat(*minIt);
+                p.minValue = getAnnotationFloat(*minIt);
             if (maxIt != annotations.end())
-                p.maxFloat = getAnnotationFloat(*maxIt);
+                p.maxValue = getAnnotationFloat(*maxIt);
         }
 
-        void applyIntRange(EffectParameter& p, const auto& annotations)
+        void applyIntRange(IntParam& p, const auto& annotations)
         {
             auto minIt = findAnnotation(annotations, "ui_min");
             auto maxIt = findAnnotation(annotations, "ui_max");
 
             if (minIt != annotations.end())
-                p.minInt = getAnnotationInt(*minIt);
+                p.minValue = getAnnotationInt(*minIt);
             if (maxIt != annotations.end())
-                p.maxInt = getAnnotationInt(*maxIt);
+                p.maxValue = getAnnotationInt(*maxIt);
         }
 
-        EffectParameter convertSpecConstant(
+        std::unique_ptr<EffectParam> convertSpecConstant(
             const reshadefx::uniform_info& spec,
             const std::string& effectName,
             Config* pConfig)
         {
-            EffectParameter p;
-            p.effectName = effectName;
-            p.name = spec.name;
-
-            // Label
+            // Label (common to all types)
             auto labelIt = findAnnotation(spec.annotations, "ui_label");
-            p.label = (labelIt != spec.annotations.end()) ? labelIt->value.string_data : spec.name;
+            std::string label = (labelIt != spec.annotations.end()) ? labelIt->value.string_data : spec.name;
 
-            // Type and value (use effectName.paramName lookup)
+            // Tooltip (common to all types)
+            auto tooltipIt = findAnnotation(spec.annotations, "ui_tooltip");
+            std::string tooltip = (tooltipIt != spec.annotations.end()) ? tooltipIt->value.string_data : "";
+
+            // UI type (common to all types)
+            auto typeIt = findAnnotation(spec.annotations, "ui_type");
+            std::string uiType = (typeIt != spec.annotations.end()) ? typeIt->value.string_data : "";
+
+            // Create appropriate subclass based on spec type
             if (spec.type.is_floating_point())
             {
-                p.type = ParamType::Float;
-                p.defaultFloat = spec.initializer_value.as_float[0];
-                p.valueFloat = pConfig->getInstanceOption<float>(effectName, spec.name, p.defaultFloat);
-                applyFloatRange(p, spec.annotations);
+                auto p = std::make_unique<FloatParam>();
+                p->effectName = effectName;
+                p->name = spec.name;
+                p->label = label;
+                p->tooltip = tooltip;
+                p->uiType = uiType;
+                p->defaultValue = spec.initializer_value.as_float[0];
+                p->value = pConfig->getInstanceOption<float>(effectName, spec.name, p->defaultValue);
+                applyFloatRange(*p, spec.annotations);
+
+                auto stepIt = findAnnotation(spec.annotations, "ui_step");
+                if (stepIt != spec.annotations.end())
+                    p->step = getAnnotationFloat(*stepIt);
+
+                return p;
             }
             else if (spec.type.is_boolean())
             {
-                p.type = ParamType::Bool;
-                p.defaultBool = (spec.initializer_value.as_uint[0] != 0);
-                p.valueBool = pConfig->getInstanceOption<bool>(effectName, spec.name, p.defaultBool);
+                auto p = std::make_unique<BoolParam>();
+                p->effectName = effectName;
+                p->name = spec.name;
+                p->label = label;
+                p->tooltip = tooltip;
+                p->uiType = uiType;
+                p->defaultValue = (spec.initializer_value.as_uint[0] != 0);
+                p->value = pConfig->getInstanceOption<bool>(effectName, spec.name, p->defaultValue);
+                return p;
             }
             else if (spec.type.is_integral())
             {
-                p.type = ParamType::Int;
-                p.defaultInt = spec.initializer_value.as_int[0];
-                p.valueInt = pConfig->getInstanceOption<int32_t>(effectName, spec.name, p.defaultInt);
-                applyIntRange(p, spec.annotations);
+                auto p = std::make_unique<IntParam>();
+                p->effectName = effectName;
+                p->name = spec.name;
+                p->label = label;
+                p->tooltip = tooltip;
+                p->uiType = uiType;
+                p->defaultValue = spec.initializer_value.as_int[0];
+                p->value = pConfig->getInstanceOption<int32_t>(effectName, spec.name, p->defaultValue);
+                applyIntRange(*p, spec.annotations);
+
+                auto stepIt = findAnnotation(spec.annotations, "ui_step");
+                if (stepIt != spec.annotations.end())
+                    p->step = getAnnotationFloat(*stepIt);
+
+                auto itemsIt = findAnnotation(spec.annotations, "ui_items");
+                if (itemsIt != spec.annotations.end())
+                    p->items = parseNullSeparatedString(itemsIt->value.string_data);
+
+                return p;
             }
 
-            // UI metadata
-            auto stepIt = findAnnotation(spec.annotations, "ui_step");
-            if (stepIt != spec.annotations.end())
-                p.step = getAnnotationFloat(*stepIt);
-
-            auto typeIt = findAnnotation(spec.annotations, "ui_type");
-            if (typeIt != spec.annotations.end())
-                p.uiType = typeIt->value.string_data;
-
-            auto itemsIt = findAnnotation(spec.annotations, "ui_items");
-            if (itemsIt != spec.annotations.end())
-                p.items = parseNullSeparatedString(itemsIt->value.string_data);
-
-            auto tooltipIt = findAnnotation(spec.annotations, "ui_tooltip");
-            if (tooltipIt != spec.annotations.end())
-                p.tooltip = tooltipIt->value.string_data;
-
-            return p;
+            return nullptr;
         }
 
         bool shouldSkipSpecConstant(const reshadefx::uniform_info& spec)
@@ -173,12 +192,12 @@ namespace vkBasalt
         }
     } // anonymous namespace
 
-    std::vector<EffectParameter> parseReshadeEffect(
+    std::vector<std::unique_ptr<EffectParam>> parseReshadeEffect(
         const std::string& effectName,
         const std::string& effectPath,
         Config* pConfig)
     {
-        std::vector<EffectParameter> params;
+        std::vector<std::unique_ptr<EffectParam>> params;
 
         // Setup preprocessor
         reshadefx::preprocessor preprocessor;
@@ -220,7 +239,9 @@ namespace vkBasalt
             if (shouldSkipSpecConstant(spec))
                 continue;
 
-            params.push_back(convertSpecConstant(spec, effectName, pConfig));
+            auto param = convertSpecConstant(spec, effectName, pConfig);
+            if (param)
+                params.push_back(std::move(param));
         }
 
         return params;

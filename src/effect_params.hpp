@@ -5,14 +5,14 @@
 #include <string>
 #include <memory>
 
-#include "imgui_overlay.hpp"
+#include "effect_param.hpp"
 #include "config.hpp"
 #include "effect.hpp"
 
 namespace vkBasalt
 {
     // Collects parameters from all active effects (built-in and ReShade)
-    std::vector<EffectParameter> collectEffectParameters(
+    std::vector<std::unique_ptr<EffectParam>> collectEffectParameters(
         std::shared_ptr<Config> pConfig,
         const std::vector<std::string>& effectNames,
         const std::vector<std::shared_ptr<Effect>>& effects);

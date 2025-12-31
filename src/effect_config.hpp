@@ -3,8 +3,9 @@
 
 #include <string>
 #include <vector>
+#include <memory>
 
-#include "imgui_overlay.hpp"
+#include "effect_param.hpp"
 
 namespace vkBasalt
 {
@@ -31,7 +32,7 @@ namespace vkBasalt
         std::string filePath;   // For ReShade: path to .fx file, empty for built-in
         EffectType type = EffectType::BuiltIn;
         bool enabled = true;
-        std::vector<EffectParameter> parameters;
+        std::vector<std::unique_ptr<EffectParam>> parameters;
         std::vector<PreprocessorDefinition> preprocessorDefs;  // ReShade: user-configurable macros
         std::string compileError;  // Empty if compiled successfully, error message if failed
         bool hasFailed() const { return !compileError.empty(); }

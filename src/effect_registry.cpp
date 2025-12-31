@@ -15,7 +15,7 @@ namespace vkBasalt
     namespace
     {
         // Helper to create a float parameter
-        EffectParameter makeFloatParam(
+        std::unique_ptr<FloatParam> makeFloatParam(
             const std::string& effectName,
             const std::string& name,
             const std::string& label,
@@ -24,20 +24,19 @@ namespace vkBasalt
             float maxVal,
             Config* pConfig)
         {
-            EffectParameter p;
-            p.effectName = effectName;
-            p.name = name;
-            p.label = label;
-            p.type = ParamType::Float;
-            p.defaultFloat = defaultVal;
-            p.valueFloat = pConfig->getInstanceOption<float>(effectName, name, defaultVal);
-            p.minFloat = minVal;
-            p.maxFloat = maxVal;
+            auto p = std::make_unique<FloatParam>();
+            p->effectName = effectName;
+            p->name = name;
+            p->label = label;
+            p->defaultValue = defaultVal;
+            p->value = pConfig->getInstanceOption<float>(effectName, name, defaultVal);
+            p->minValue = minVal;
+            p->maxValue = maxVal;
             return p;
         }
 
         // Helper to create an int parameter
-        EffectParameter makeIntParam(
+        std::unique_ptr<IntParam> makeIntParam(
             const std::string& effectName,
             const std::string& name,
             const std::string& label,
@@ -46,15 +45,14 @@ namespace vkBasalt
             int maxVal,
             Config* pConfig)
         {
-            EffectParameter p;
-            p.effectName = effectName;
-            p.name = name;
-            p.label = label;
-            p.type = ParamType::Int;
-            p.defaultInt = defaultVal;
-            p.valueInt = pConfig->getInstanceOption<int32_t>(effectName, name, defaultVal);
-            p.minInt = minVal;
-            p.maxInt = maxVal;
+            auto p = std::make_unique<IntParam>();
+            p->effectName = effectName;
+            p->name = name;
+            p->label = label;
+            p->defaultValue = defaultVal;
+            p->value = pConfig->getInstanceOption<int32_t>(effectName, name, defaultVal);
+            p->minValue = minVal;
+            p->maxValue = maxVal;
             return p;
         }
 
@@ -194,16 +192,15 @@ namespace vkBasalt
         }
         else if (effectType == "lut")
         {
-            EffectParameter p;
-            p.effectName = instanceName;
-            p.name = "lutFile";
-            p.label = "LUT File";
-            p.type = ParamType::Float;
-            p.valueFloat = 0;
-            config.parameters.push_back(p);
+            auto p = std::make_unique<FloatParam>();
+            p->effectName = instanceName;
+            p->name = "lutFile";
+            p->label = "LUT File";
+            p->value = 0;
+            config.parameters.push_back(std::move(p));
         }
 
-        effects.push_back(config);
+        effects.push_back(std::move(config));
     }
 
     void EffectRegistry::initReshadeEffect(const std::string& name, const std::string& path)
@@ -252,31 +249,32 @@ namespace vkBasalt
                           std::to_string(config.preprocessorDefs.size()) + " preprocessor defs");
         }
 
-        effects.push_back(config);
+        effects.push_back(std::move(config));
     }
 
-    std::vector<EffectConfig> EffectRegistry::getEnabledEffects() const
+    std::vector<const EffectConfig*> EffectRegistry::getEnabledEffects() const
     {
         std::lock_guard<std::mutex> lock(mutex);
-        std::vector<EffectConfig> enabled;
+        std::vector<const EffectConfig*> enabled;
 
         for (const auto& effect : effects)
         {
             if (effect.enabled)
-                enabled.push_back(effect);
+                enabled.push_back(&effect);
         }
 
         return enabled;
     }
 
-    std::vector<EffectParameter> EffectRegistry::getAllParameters() const
+    std::vector<std::unique_ptr<EffectParam>> EffectRegistry::getAllParameters() const
     {
         std::lock_guard<std::mutex> lock(mutex);
-        std::vector<EffectParameter> params;
+        std::vector<std::unique_ptr<EffectParam>> params;
 
         for (const auto& effect : effects)
         {
-            params.insert(params.end(), effect.parameters.begin(), effect.parameters.end());
+            for (const auto& p : effect.parameters)
+                params.push_back(p->clone());
         }
 
         return params;
@@ -304,22 +302,22 @@ namespace vkBasalt
     }
 
     // Internal helper to find parameter within an effect (assumes mutex is held)
-    EffectParameter* EffectRegistry::findParam(EffectConfig& effect, const std::string& paramName)
+    EffectParam* EffectRegistry::findParam(EffectConfig& effect, const std::string& paramName)
     {
         for (auto& param : effect.parameters)
         {
-            if (param.name == paramName)
-                return &param;
+            if (param->name == paramName)
+                return param.get();
         }
         return nullptr;
     }
 
-    const EffectParameter* EffectRegistry::findParam(const EffectConfig& effect, const std::string& paramName) const
+    const EffectParam* EffectRegistry::findParam(const EffectConfig& effect, const std::string& paramName) const
     {
         for (const auto& param : effect.parameters)
         {
-            if (param.name == paramName)
-                return &param;
+            if (param->name == paramName)
+                return param.get();
         }
         return nullptr;
     }
@@ -359,9 +357,9 @@ namespace vkBasalt
         if (!effect)
             return;
 
-        EffectParameter* param = findParam(*effect, paramName);
-        if (param)
-            param->valueFloat = value;
+        EffectParam* param = findParam(*effect, paramName);
+        if (param && param->getType() == ParamType::Float)
+            static_cast<FloatParam*>(param)->value = value;
     }
 
     void EffectRegistry::setParameterValue(const std::string& effectName, const std::string& paramName, int value)
@@ -372,9 +370,9 @@ namespace vkBasalt
         if (!effect)
             return;
 
-        EffectParameter* param = findParam(*effect, paramName);
-        if (param)
-            param->valueInt = value;
+        EffectParam* param = findParam(*effect, paramName);
+        if (param && param->getType() == ParamType::Int)
+            static_cast<IntParam*>(param)->value = value;
     }
 
     void EffectRegistry::setParameterValue(const std::string& effectName, const std::string& paramName, bool value)
@@ -385,12 +383,12 @@ namespace vkBasalt
         if (!effect)
             return;
 
-        EffectParameter* param = findParam(*effect, paramName);
-        if (param)
-            param->valueBool = value;
+        EffectParam* param = findParam(*effect, paramName);
+        if (param && param->getType() == ParamType::Bool)
+            static_cast<BoolParam*>(param)->value = value;
     }
 
-    EffectParameter* EffectRegistry::getParameter(const std::string& effectName, const std::string& paramName)
+    EffectParam* EffectRegistry::getParameter(const std::string& effectName, const std::string& paramName)
     {
         std::lock_guard<std::mutex> lock(mutex);
 
@@ -401,7 +399,7 @@ namespace vkBasalt
         return findParam(*effect, paramName);
     }
 
-    const EffectParameter* EffectRegistry::getParameter(const std::string& effectName, const std::string& paramName) const
+    const EffectParam* EffectRegistry::getParameter(const std::string& effectName, const std::string& paramName) const
     {
         std::lock_guard<std::mutex> lock(mutex);
 

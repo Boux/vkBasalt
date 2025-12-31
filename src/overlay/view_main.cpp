@@ -212,11 +212,11 @@ namespace vkBasalt
                 {
                     for (auto& param : editableParams)
                     {
-                        if (param.effectName != effectName)
+                        if (param->effectName != effectName)
                             continue;
-                        FieldEditor* editor = FieldEditorFactory::instance().getEditor(param.type);
+                        FieldEditor* editor = FieldEditorFactory::instance().getEditor(param->getType());
                         if (editor)
-                            editor->resetToDefault(param);
+                            editor->resetToDefault(*param);
                     }
                     changedThisFrame = true;
                     paramsDirty = true;
@@ -303,11 +303,11 @@ namespace vkBasalt
             int paramIndex = 0;
             for (auto& param : editableParams)
             {
-                if (param.effectName != effectName)
+                if (param->effectName != effectName)
                     continue;
 
                 ImGui::PushID(paramIndex++);
-                if (renderFieldEditor(param))
+                if (renderFieldEditor(*param))
                 {
                     paramsDirty = true;
                     changedThisFrame = true;

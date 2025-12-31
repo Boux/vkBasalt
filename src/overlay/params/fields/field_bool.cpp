@@ -6,19 +6,20 @@ namespace vkBasalt
     class BoolFieldEditor : public FieldEditor
     {
     public:
-        bool render(EffectParameter& param) override
+        bool render(EffectParam& param) override
         {
+            auto& p = static_cast<BoolParam&>(param);
             bool changed = false;
 
-            if (ImGui::Checkbox(param.label.c_str(), &param.valueBool))
+            if (ImGui::Checkbox(p.label.c_str(), &p.value))
                 changed = true;
 
             return changed;
         }
 
-        void resetToDefault(EffectParameter& param) override
+        void resetToDefault(EffectParam& param) override
         {
-            param.valueBool = param.defaultBool;
+            param.resetToDefault();
         }
     };
 

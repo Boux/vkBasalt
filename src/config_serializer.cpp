@@ -70,7 +70,7 @@ namespace vkBasalt
         const std::string& configName,
         const std::vector<std::string>& effects,
         const std::vector<std::string>& disabledEffects,
-        const std::vector<EffectParam>& params,
+        const std::vector<ConfigParam>& params,
         const std::map<std::string, std::string>& effectPaths,
         const std::vector<PreprocessorDefinition>& preprocessorDefs)
     {
@@ -92,7 +92,7 @@ namespace vkBasalt
         }
 
         // Group params by effect
-        std::map<std::string, std::vector<const EffectParam*>> paramsByEffect;
+        std::map<std::string, std::vector<const ConfigParam*>> paramsByEffect;
         for (const auto& param : params)
             paramsByEffect[param.effectName].push_back(&param);
 

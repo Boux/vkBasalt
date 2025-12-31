@@ -9,7 +9,8 @@
 
 namespace vkBasalt
 {
-    struct EffectParam
+    // Serialized parameter format for config files
+    struct ConfigParam
     {
         std::string effectName;
         std::string paramName;
@@ -50,7 +51,7 @@ namespace vkBasalt
             const std::string& configName,
             const std::vector<std::string>& effects,
             const std::vector<std::string>& disabledEffects,
-            const std::vector<EffectParam>& params,
+            const std::vector<ConfigParam>& params,
             const std::map<std::string, std::string>& effectPaths = {},
             const std::vector<PreprocessorDefinition>& preprocessorDefs = {});
 

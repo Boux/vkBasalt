@@ -29,9 +29,9 @@ namespace vkBasalt
         return editors[type].get();
     }
 
-    bool renderFieldEditor(EffectParameter& param)
+    bool renderFieldEditor(EffectParam& param)
     {
-        FieldEditor* editor = FieldEditorFactory::instance().getEditor(param.type);
+        FieldEditor* editor = FieldEditorFactory::instance().getEditor(param.getType());
         if (!editor)
             return false;
 

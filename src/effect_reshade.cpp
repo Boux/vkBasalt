@@ -1019,110 +1019,133 @@ namespace vkBasalt
         Logger::debug("after the second pipeline barrier");
     }
 
-    std::vector<EffectParameter> ReshadeEffect::getParameters() const
+    std::vector<std::unique_ptr<EffectParam>> ReshadeEffect::getParameters() const
     {
-        std::vector<EffectParameter> params;
+        std::vector<std::unique_ptr<EffectParam>> params;
+
+        // Helper lambdas
+        auto findAnnotation = [](const auto& annotations, const std::string& name) {
+            return std::find_if(annotations.begin(), annotations.end(),
+                [&name](const auto& a) { return a.name == name; });
+        };
+
+        auto getAnnotationFloat = [](const auto& annotation) {
+            return annotation.type.is_floating_point()
+                ? annotation.value.as_float[0]
+                : static_cast<float>(annotation.value.as_int[0]);
+        };
+
+        auto getAnnotationInt = [](const auto& annotation) {
+            return annotation.type.is_integral()
+                ? annotation.value.as_int[0]
+                : static_cast<int>(annotation.value.as_float[0]);
+        };
+
+        auto parseNullSeparatedString = [](const std::string& str) {
+            std::vector<std::string> items;
+            size_t start = 0;
+            for (size_t i = 0; i <= str.size(); i++)
+            {
+                if (i == str.size() || str[i] == '\0')
+                {
+                    if (i > start)
+                        items.push_back(str.substr(start, i - start));
+                    start = i + 1;
+                }
+            }
+            return items;
+        };
 
         for (const auto& spec : module.spec_constants)
         {
             // Skip uniforms with "source" annotation (auto-updated like frametime)
-            auto sourceIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
-                [](const auto& a) { return a.name == "source"; });
-            if (sourceIt != spec.annotations.end())
+            if (findAnnotation(spec.annotations, "source") != spec.annotations.end())
                 continue;
 
             // Skip if no name (can't be configured)
             if (spec.name.empty())
                 continue;
 
-            EffectParameter p;
-            p.effectName = effectName;
-            p.name = spec.name;
+            // Get common annotations
+            auto labelIt = findAnnotation(spec.annotations, "ui_label");
+            std::string label = (labelIt != spec.annotations.end()) ? labelIt->value.string_data : spec.name;
 
-            // Get ui_label or use name
-            auto labelIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
-                [](const auto& a) { return a.name == "ui_label"; });
-            p.label = (labelIt != spec.annotations.end()) ? labelIt->value.string_data : spec.name;
+            auto tooltipIt = findAnnotation(spec.annotations, "ui_tooltip");
+            std::string tooltip = (tooltipIt != spec.annotations.end()) ? tooltipIt->value.string_data : "";
 
-            // Check if value is configured, otherwise use default
+            auto typeIt = findAnnotation(spec.annotations, "ui_type");
+            std::string uiType = (typeIt != spec.annotations.end()) ? typeIt->value.string_data : "";
+
+            // Check if value is configured
             std::string configVal = pConfig->getOption<std::string>(spec.name);
             bool hasConfig = !configVal.empty();
 
-            // Determine type and get value/range
+            // Create appropriate subclass based on spec type
             if (spec.type.is_floating_point())
             {
-                p.type = ParamType::Float;
-                p.defaultFloat = spec.initializer_value.as_float[0];
-                p.valueFloat = hasConfig ? pConfig->getOption<float>(spec.name) : p.defaultFloat;
+                auto p = std::make_unique<FloatParam>();
+                p->effectName = effectName;
+                p->name = spec.name;
+                p->label = label;
+                p->tooltip = tooltip;
+                p->uiType = uiType;
+                p->defaultValue = spec.initializer_value.as_float[0];
+                p->value = hasConfig ? pConfig->getOption<float>(spec.name) : p->defaultValue;
 
-                auto minIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
-                    [](const auto& a) { return a.name == "ui_min"; });
-                auto maxIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
-                    [](const auto& a) { return a.name == "ui_max"; });
-
+                auto minIt = findAnnotation(spec.annotations, "ui_min");
+                auto maxIt = findAnnotation(spec.annotations, "ui_max");
                 if (minIt != spec.annotations.end())
-                    p.minFloat = minIt->type.is_floating_point() ? minIt->value.as_float[0] : (float)minIt->value.as_int[0];
+                    p->minValue = getAnnotationFloat(*minIt);
                 if (maxIt != spec.annotations.end())
-                    p.maxFloat = maxIt->type.is_floating_point() ? maxIt->value.as_float[0] : (float)maxIt->value.as_int[0];
+                    p->maxValue = getAnnotationFloat(*maxIt);
+
+                auto stepIt = findAnnotation(spec.annotations, "ui_step");
+                if (stepIt != spec.annotations.end())
+                    p->step = getAnnotationFloat(*stepIt);
+
+                params.push_back(std::move(p));
+            }
+            else if (spec.type.is_boolean())
+            {
+                auto p = std::make_unique<BoolParam>();
+                p->effectName = effectName;
+                p->name = spec.name;
+                p->label = label;
+                p->tooltip = tooltip;
+                p->uiType = uiType;
+                p->defaultValue = (spec.initializer_value.as_uint[0] != 0);
+                p->value = hasConfig ? pConfig->getOption<bool>(spec.name) : p->defaultValue;
+
+                params.push_back(std::move(p));
             }
             else if (spec.type.is_integral())
             {
-                if (spec.type.is_boolean())
-                {
-                    p.type = ParamType::Bool;
-                    p.defaultBool = (spec.initializer_value.as_uint[0] != 0);
-                    p.valueBool = hasConfig ? pConfig->getOption<bool>(spec.name) : p.defaultBool;
-                }
-                else
-                {
-                    p.type = ParamType::Int;
-                    p.defaultInt = spec.initializer_value.as_int[0];
-                    p.valueInt = hasConfig ? pConfig->getOption<int32_t>(spec.name) : p.defaultInt;
+                auto p = std::make_unique<IntParam>();
+                p->effectName = effectName;
+                p->name = spec.name;
+                p->label = label;
+                p->tooltip = tooltip;
+                p->uiType = uiType;
+                p->defaultValue = spec.initializer_value.as_int[0];
+                p->value = hasConfig ? pConfig->getOption<int32_t>(spec.name) : p->defaultValue;
 
-                    auto minIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
-                        [](const auto& a) { return a.name == "ui_min"; });
-                    auto maxIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
-                        [](const auto& a) { return a.name == "ui_max"; });
+                auto minIt = findAnnotation(spec.annotations, "ui_min");
+                auto maxIt = findAnnotation(spec.annotations, "ui_max");
+                if (minIt != spec.annotations.end())
+                    p->minValue = getAnnotationInt(*minIt);
+                if (maxIt != spec.annotations.end())
+                    p->maxValue = getAnnotationInt(*maxIt);
 
-                    if (minIt != spec.annotations.end())
-                        p.minInt = minIt->type.is_integral() ? minIt->value.as_int[0] : (int)minIt->value.as_float[0];
-                    if (maxIt != spec.annotations.end())
-                        p.maxInt = maxIt->type.is_integral() ? maxIt->value.as_int[0] : (int)maxIt->value.as_float[0];
-                }
+                auto stepIt = findAnnotation(spec.annotations, "ui_step");
+                if (stepIt != spec.annotations.end())
+                    p->step = getAnnotationFloat(*stepIt);
+
+                auto itemsIt = findAnnotation(spec.annotations, "ui_items");
+                if (itemsIt != spec.annotations.end())
+                    p->items = parseNullSeparatedString(itemsIt->value.string_data);
+
+                params.push_back(std::move(p));
             }
-
-            // Get ui_step
-            auto stepIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
-                [](const auto& a) { return a.name == "ui_step"; });
-            if (stepIt != spec.annotations.end())
-                p.step = stepIt->type.is_floating_point() ? stepIt->value.as_float[0] : (float)stepIt->value.as_int[0];
-
-            // Get ui_type
-            auto typeIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
-                [](const auto& a) { return a.name == "ui_type"; });
-            if (typeIt != spec.annotations.end())
-                p.uiType = typeIt->value.string_data;
-
-            // Get ui_items (null-separated list for combo boxes)
-            auto itemsIt = std::find_if(spec.annotations.begin(), spec.annotations.end(),
-                [](const auto& a) { return a.name == "ui_items"; });
-            if (itemsIt != spec.annotations.end())
-            {
-                std::string itemsStr = itemsIt->value.string_data;
-                // Parse null-separated items
-                size_t start = 0;
-                for (size_t i = 0; i <= itemsStr.size(); i++)
-                {
-                    if (i == itemsStr.size() || itemsStr[i] == '\0')
-                    {
-                        if (i > start)
-                            p.items.push_back(itemsStr.substr(start, i - start));
-                        start = i + 1;
-                    }
-                }
-            }
-
-            params.push_back(p);
         }
 
         return params;

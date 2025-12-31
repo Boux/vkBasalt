@@ -7,31 +7,32 @@ namespace vkBasalt
     class IntFieldEditor : public FieldEditor
     {
     public:
-        bool render(EffectParameter& param) override
+        bool render(EffectParam& param) override
         {
+            auto& p = static_cast<IntParam&>(param);
             bool changed = false;
 
-            if (!param.items.empty())
+            if (!p.items.empty())
             {
                 // Combo box mode
                 std::string itemsStr;
-                for (const auto& item : param.items)
+                for (const auto& item : p.items)
                     itemsStr += item + '\0';
                 itemsStr += '\0';
 
-                if (ImGui::Combo(param.label.c_str(), &param.valueInt, itemsStr.c_str()))
+                if (ImGui::Combo(p.label.c_str(), &p.value, itemsStr.c_str()))
                     changed = true;
             }
             else
             {
                 // Slider mode
-                if (ImGui::SliderInt(param.label.c_str(), &param.valueInt, param.minInt, param.maxInt))
+                if (ImGui::SliderInt(p.label.c_str(), &p.value, p.minValue, p.maxValue))
                 {
-                    if (param.step > 0.0f)
+                    if (p.step > 0.0f)
                     {
-                        int step = static_cast<int>(param.step);
+                        int step = static_cast<int>(p.step);
                         if (step > 0)
-                            param.valueInt = (param.valueInt / step) * step;
+                            p.value = (p.value / step) * step;
                     }
                     changed = true;
                 }
@@ -48,9 +49,9 @@ namespace vkBasalt
             return changed;
         }
 
-        void resetToDefault(EffectParameter& param) override
+        void resetToDefault(EffectParam& param) override
         {
-            param.valueInt = param.defaultInt;
+            param.resetToDefault();
         }
     };
 

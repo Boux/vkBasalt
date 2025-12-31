@@ -98,7 +98,7 @@ namespace vkBasalt
     // Cached parameters (to avoid re-parsing config every frame)
     struct CachedParametersData
     {
-        std::vector<EffectParameter> parameters;
+        std::vector<std::unique_ptr<EffectParam>> parameters;
         std::vector<std::string> effectNames;  // Effects when params were collected
         std::string configPath;
         bool dirty = true;  // Set to true to force recollection
@@ -199,20 +199,13 @@ namespace vkBasalt
 
         for (const auto& param : params)
         {
-            std::string valueStr;
-            switch (param.type)
+            // Use polymorphic serialize method
+            auto serialized = param->serialize();
+            if (!serialized.empty())
             {
-            case ParamType::Float:
-                valueStr = std::to_string(param.valueFloat);
-                break;
-            case ParamType::Int:
-                valueStr = std::to_string(param.valueInt);
-                break;
-            case ParamType::Bool:
-                valueStr = param.valueBool ? "true" : "false";
-                break;
+                // First element's value is the main value
+                pConfig->setOverride(param->effectName + "." + param->name, serialized[0].second);
             }
-            pConfig->setOverride(param.effectName + "." + param.name, valueStr);
         }
     }
 
@@ -591,7 +584,7 @@ namespace vkBasalt
         }
 
         overlayState.parameters = effectRegistry.getAllParameters();
-        pLogicalDevice->imguiOverlay->updateState(overlayState);
+        pLogicalDevice->imguiOverlay->updateState(std::move(overlayState));
     }
 
     // Submit overlay command buffer if visible, returns semaphore to wait on

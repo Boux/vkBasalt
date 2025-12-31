@@ -12,6 +12,10 @@
 
 namespace vkBasalt
 {
+    // Build version - increment this each build
+    static constexpr int BUILD_NUMBER = 1;
+    static constexpr const char* BUILD_DATE = "2025-12-31";
+    static constexpr const char* BUILD_INFO = "polymorphic-params";
     namespace
     {
         // Ring buffer for storing history
@@ -243,6 +247,10 @@ namespace vkBasalt
         }
 
         ImGui::BeginChild("DiagnosticsContent", ImVec2(0, 0), false);
+
+        // Build version info
+        ImGui::TextDisabled("Build #%d (%s) - %s", BUILD_NUMBER, BUILD_DATE, BUILD_INFO);
+        ImGui::Spacing();
 
         // Frame rate and timing
         float avgFrameTime = frameTimeHistory.avg();

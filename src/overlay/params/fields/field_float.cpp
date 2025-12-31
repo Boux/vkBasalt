@@ -8,14 +8,15 @@ namespace vkBasalt
     class FloatFieldEditor : public FieldEditor
     {
     public:
-        bool render(EffectParameter& param) override
+        bool render(EffectParam& param) override
         {
+            auto& p = static_cast<FloatParam&>(param);
             bool changed = false;
 
-            if (ImGui::SliderFloat(param.label.c_str(), &param.valueFloat, param.minFloat, param.maxFloat))
+            if (ImGui::SliderFloat(p.label.c_str(), &p.value, p.minValue, p.maxValue))
             {
-                if (param.step > 0.0f)
-                    param.valueFloat = std::round(param.valueFloat / param.step) * param.step;
+                if (p.step > 0.0f)
+                    p.value = std::round(p.value / p.step) * p.step;
                 changed = true;
             }
 
@@ -30,9 +31,9 @@ namespace vkBasalt
             return changed;
         }
 
-        void resetToDefault(EffectParameter& param) override
+        void resetToDefault(EffectParam& param) override
         {
-            param.valueFloat = param.defaultFloat;
+            param.resetToDefault();
         }
     };
 

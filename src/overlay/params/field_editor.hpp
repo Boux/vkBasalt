@@ -1,7 +1,7 @@
 #ifndef FIELD_EDITOR_HPP_INCLUDED
 #define FIELD_EDITOR_HPP_INCLUDED
 
-#include "../imgui_overlay.hpp"
+#include "effect_param.hpp"
 #include <memory>
 #include <map>
 #include <functional>
@@ -16,10 +16,10 @@ namespace vkBasalt
         virtual ~FieldEditor() = default;
 
         // Render the field UI, returns true if value changed
-        virtual bool render(EffectParameter& param) = 0;
+        virtual bool render(EffectParam& param) = 0;
 
         // Reset parameter to default value
-        virtual void resetToDefault(EffectParameter& param) = 0;
+        virtual void resetToDefault(EffectParam& param) = 0;
     };
 
     // Factory for creating field editors
@@ -54,7 +54,7 @@ namespace vkBasalt
         }
 
     // Main entry point - renders the appropriate editor for a parameter
-    bool renderFieldEditor(EffectParameter& param);
+    bool renderFieldEditor(EffectParam& param);
 
 } // namespace vkBasalt
 

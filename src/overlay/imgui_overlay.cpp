@@ -188,9 +188,9 @@ namespace vkBasalt
         pPersistentState->visible = visible;
     }
 
-    void ImGuiOverlay::updateState(const OverlayState& newState)
+    void ImGuiOverlay::updateState(OverlayState newState)
     {
-        state = newState;
+        state = std::move(newState);
 
         if (!pEffectRegistry)
             return;
@@ -210,31 +210,42 @@ namespace vkBasalt
             bool found = false;
             for (auto& existingParam : editableParams)
             {
-                if (existingParam.effectName != newParam.effectName || existingParam.name != newParam.name)
+                if (existingParam->effectName != newParam->effectName || existingParam->name != newParam->name)
                     continue;
-                existingParam.minFloat = newParam.minFloat;
-                existingParam.maxFloat = newParam.maxFloat;
-                existingParam.minInt = newParam.minInt;
-                existingParam.maxInt = newParam.maxInt;
+                // Update range values based on type
+                if (existingParam->getType() == ParamType::Float && newParam->getType() == ParamType::Float)
+                {
+                    auto& existFloat = static_cast<FloatParam&>(*existingParam);
+                    auto& newFloat = static_cast<const FloatParam&>(*newParam);
+                    existFloat.minValue = newFloat.minValue;
+                    existFloat.maxValue = newFloat.maxValue;
+                }
+                else if (existingParam->getType() == ParamType::Int && newParam->getType() == ParamType::Int)
+                {
+                    auto& existInt = static_cast<IntParam&>(*existingParam);
+                    auto& newInt = static_cast<const IntParam&>(*newParam);
+                    existInt.minValue = newInt.minValue;
+                    existInt.maxValue = newInt.maxValue;
+                }
                 found = true;
                 break;
             }
             if (!found)
-                editableParams.push_back(newParam);
+                editableParams.push_back(newParam->clone());
         }
 
         // Remove params for effects that are no longer selected
         editableParams.erase(
             std::remove_if(editableParams.begin(), editableParams.end(),
-                [&selectedEffects](const EffectParameter& p) {
-                    return std::find(selectedEffects.begin(), selectedEffects.end(), p.effectName) == selectedEffects.end();
+                [&selectedEffects](const std::unique_ptr<EffectParam>& p) {
+                    return std::find(selectedEffects.begin(), selectedEffects.end(), p->effectName) == selectedEffects.end();
                 }),
             editableParams.end());
     }
 
-    std::vector<EffectParameter> ImGuiOverlay::getModifiedParams()
+    std::vector<std::unique_ptr<EffectParam>> ImGuiOverlay::getModifiedParams()
     {
-        return editableParams;
+        return cloneParams(editableParams);
     }
 
     std::vector<std::string> ImGuiOverlay::getActiveEffects() const
@@ -259,31 +270,23 @@ namespace vkBasalt
 
     void ImGuiOverlay::saveCurrentConfig()
     {
-        // Collect parameters that differ from defaults
-        std::vector<EffectParam> params;
+        // Collect parameters that differ from defaults using polymorphic interface
+        std::vector<ConfigParam> params;
         for (const auto& p : editableParams)
         {
-            bool differs = false;
-            if (p.type == ParamType::Float)
-                differs = (p.valueFloat != p.defaultFloat);
-            else if (p.type == ParamType::Int)
-                differs = (p.valueInt != p.defaultInt);
-            else
-                differs = (p.valueBool != p.defaultBool);
-
-            if (!differs)
+            if (!p->hasChanged())
                 continue;
 
-            EffectParam ep;
-            ep.effectName = p.effectName;
-            ep.paramName = p.name;
-            if (p.type == ParamType::Float)
-                ep.value = std::to_string(p.valueFloat);
-            else if (p.type == ParamType::Int)
-                ep.value = std::to_string(p.valueInt);
-            else
-                ep.value = p.valueBool ? "true" : "false";
-            params.push_back(ep);
+            // Use polymorphic serialize method
+            auto serialized = p->serialize();
+            if (!serialized.empty())
+            {
+                ConfigParam cp;
+                cp.effectName = p->effectName;
+                cp.paramName = p->name;
+                cp.value = serialized[0].second;
+                params.push_back(cp);
+            }
         }
 
         if (!pEffectRegistry)

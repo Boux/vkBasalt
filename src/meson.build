@@ -83,11 +83,12 @@ input_blocker_lib = static_library('input_blocker', 'input_blocker.cpp')
 
 imgui_inc = include_directories('imgui')
 overlay_inc = include_directories('overlay')
+params_inc = include_directories('params')
 
 shared_library(meson.project_name().to_lower(),
     vkBasalt_src, overlay_src, imgui_src, shader_include,
     link_with: [keyboard_input_x11_lib, mouse_input_lib, input_blocker_lib],
-    include_directories : [vkBasalt_include_path, imgui_inc, overlay_inc],
+    include_directories : [vkBasalt_include_path, imgui_inc, overlay_inc, params_inc],
     cpp_args : ['-DIMGUI_IMPL_VULKAN_NO_PROTOTYPES'],
     dependencies : [x11_dep, xi_dep, reshade_dep],
     gnu_symbol_visibility: 'hidden',

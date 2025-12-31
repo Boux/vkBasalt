@@ -24,11 +24,11 @@ namespace vkBasalt
         // Get all effect configs (enabled + disabled)
         const std::vector<EffectConfig>& getAllEffects() const { return effects; }
 
-        // Get only enabled effects (for rendering)
-        std::vector<EffectConfig> getEnabledEffects() const;
+        // Get only enabled effects (for rendering) - returns pointers to avoid copying
+        std::vector<const EffectConfig*> getEnabledEffects() const;
 
         // Get all parameters from all effects (for UI)
-        std::vector<EffectParameter> getAllParameters() const;
+        std::vector<std::unique_ptr<EffectParam>> getAllParameters() const;
 
         // Toggle effect enabled state
         void setEffectEnabled(const std::string& effectName, bool enabled);
@@ -45,8 +45,8 @@ namespace vkBasalt
         void setParameterValue(const std::string& effectName, const std::string& paramName, bool value);
 
         // Get parameter by name
-        EffectParameter* getParameter(const std::string& effectName, const std::string& paramName);
-        const EffectParameter* getParameter(const std::string& effectName, const std::string& paramName) const;
+        EffectParam* getParameter(const std::string& effectName, const std::string& paramName);
+        const EffectParam* getParameter(const std::string& effectName, const std::string& paramName) const;
 
         // Get config reference for effects to read values
         Config* getConfig() const { return pConfig; }
@@ -112,8 +112,8 @@ namespace vkBasalt
         // Internal helpers (assume mutex is held)
         EffectConfig* findEffect(const std::string& effectName);
         const EffectConfig* findEffect(const std::string& effectName) const;
-        EffectParameter* findParam(EffectConfig& effect, const std::string& paramName);
-        const EffectParameter* findParam(const EffectConfig& effect, const std::string& paramName) const;
+        EffectParam* findParam(EffectConfig& effect, const std::string& paramName);
+        const EffectParam* findParam(const EffectConfig& effect, const std::string& paramName) const;
     };
 
 } // namespace vkBasalt

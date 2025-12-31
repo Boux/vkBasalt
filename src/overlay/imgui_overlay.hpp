@@ -11,40 +11,12 @@
 #include "vulkan_include.hpp"
 #include "logical_device.hpp"
 #include "keyboard_input.hpp"
+#include "effect_param.hpp"
 
 namespace vkBasalt
 {
     class Effect;
     class EffectRegistry;
-
-    enum class ParamType
-    {
-        Float,
-        Int,
-        Bool
-    };
-
-    struct EffectParameter
-    {
-        std::string effectName;   // Which effect this belongs to (e.g., "cas", "Clarity.fx")
-        std::string name;         // Parameter name (e.g., "casSharpness")
-        std::string label;        // Display label (from ui_label or name)
-        ParamType type = ParamType::Float;
-        float valueFloat = 0.0f;
-        int valueInt = 0;
-        bool valueBool = false;
-        float defaultFloat = 0.0f;
-        int defaultInt = 0;
-        bool defaultBool = false;
-        float minFloat = 0.0f;
-        float maxFloat = 1.0f;
-        int minInt = 0;
-        int maxInt = 100;
-        float step = 0.0f;                    // ui_step - increment step for sliders
-        std::string uiType;                   // ui_type - "slider", "drag", "combo", etc.
-        std::vector<std::string> items;       // ui_items - combo box options
-        std::string tooltip;                  // ui_tooltip - hover description
-    };
 
     struct OverlayState
     {
@@ -56,7 +28,7 @@ namespace vkBasalt
         std::string configPath;
         std::string configName;  // Just the filename (e.g., "tunic.conf")
         bool effectsEnabled = true;
-        std::vector<EffectParameter> parameters;
+        std::vector<std::unique_ptr<EffectParam>> parameters;
     };
 
     // UI preferences that persist across swapchain recreation
@@ -76,10 +48,10 @@ namespace vkBasalt
         void toggle();
         bool isVisible() const { return visible; }
 
-        void updateState(const OverlayState& state);
+        void updateState(OverlayState newState);
 
         // Returns modified parameters when Apply is clicked, empty otherwise
-        std::vector<EffectParameter> getModifiedParams();
+        std::vector<std::unique_ptr<EffectParam>> getModifiedParams();
         bool hasModifiedParams() const { return applyRequested; }
         void clearApplyRequest() { applyRequested = false; }
 
@@ -143,7 +115,7 @@ namespace vkBasalt
         VkFormat swapchainFormat = VK_FORMAT_UNDEFINED;
         uint32_t imageCount = 0;
         OverlayState state;
-        std::vector<EffectParameter> editableParams;  // Persistent editable values
+        std::vector<std::unique_ptr<EffectParam>> editableParams;  // Persistent editable values
         std::vector<std::pair<std::string, std::string>> pendingAddEffects;  // {instanceName, effectType} to add
         bool inSelectionMode = false;
         int insertPosition = -1;  // Position to insert effects (-1 = append to end)
