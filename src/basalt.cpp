@@ -517,10 +517,13 @@ namespace vkBasalt
         pLogicalSwapchain->effects.clear();
         pLogicalSwapchain->defaultTransfer.reset();
 
-        // Use provided active effects list, or fall back to config
-        std::vector<std::string> effectStrings = activeEffects.empty()
-            ? pConfig->getOption<std::vector<std::string>>("effects", {})
-            : activeEffects;
+        // Use provided active effects list
+        // Only fall back to config if registry hasn't been initialized (first load)
+        std::vector<std::string> effectStrings;
+        if (activeEffects.empty() && !effectRegistry.isInitializedFromConfig())
+            effectStrings = pConfig->getOption<std::vector<std::string>>("effects", {});
+        else
+            effectStrings = activeEffects;
 
         // Check if we have enough fake images for the effects
         // Fake images are allocated at swapchain creation based on maxEffectSlots
@@ -571,7 +574,10 @@ namespace vkBasalt
 
         OverlayState overlayState;
         overlayState.effectNames = pLogicalDevice->imguiOverlay->getActiveEffects();
-        if (overlayState.effectNames.empty())
+
+        // Only fall back to config effects if registry hasn't been initialized yet
+        // (user clearing all effects should stay empty, not revert to config)
+        if (overlayState.effectNames.empty() && !effectRegistry.isInitializedFromConfig())
         {
             overlayState.effectNames = pConfig->getOption<std::vector<std::string>>("effects", {});
             overlayState.disabledEffects = pConfig->getOption<std::vector<std::string>>("disabledEffects", {});
