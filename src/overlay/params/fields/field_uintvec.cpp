@@ -1,26 +1,28 @@
 #include "../field_editor.hpp"
 #include "../../../imgui/imgui.h"
 #include "../../../imgui/imgui_internal.h"
-#include <cmath>
 
 namespace vkBasalt
 {
-    class Float2FieldEditor : public FieldEditor
+    class UintVecFieldEditor : public FieldEditor
     {
     public:
         bool render(EffectParam& param) override
         {
-            auto& p = static_cast<Float2Param&>(param);
+            auto& p = static_cast<UintVecParam&>(param);
             bool changed = false;
 
-            // Use the min/max from the first component for now
-            // TODO: Could support per-component ranges if needed
-            if (ImGui::SliderFloat2(p.label.c_str(), p.value, p.minValue[0], p.maxValue[0]))
+            // Use SliderScalarN for unsigned int vectors
+            if (ImGui::SliderScalarN(p.label.c_str(), ImGuiDataType_U32, p.value, p.componentCount, &p.minValue[0], &p.maxValue[0]))
             {
                 if (p.step > 0.0f)
                 {
-                    p.value[0] = std::round(p.value[0] / p.step) * p.step;
-                    p.value[1] = std::round(p.value[1] / p.step) * p.step;
+                    uint32_t step = static_cast<uint32_t>(p.step);
+                    if (step > 0)
+                    {
+                        for (uint32_t i = 0; i < p.componentCount; i++)
+                            p.value[i] = (p.value[i] / step) * step;
+                    }
                 }
                 changed = true;
             }
@@ -42,6 +44,6 @@ namespace vkBasalt
         }
     };
 
-    REGISTER_FIELD_EDITOR(ParamType::Float2, Float2FieldEditor)
+    REGISTER_FIELD_EDITOR(ParamType::UintVec, UintVecFieldEditor)
 
 } // namespace vkBasalt

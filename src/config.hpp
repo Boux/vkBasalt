@@ -82,6 +82,7 @@ namespace vkBasalt
         void updateLastModifiedTime();
 
         void parseOption(const std::string& option, int32_t& result);
+        void parseOption(const std::string& option, uint32_t& result);
         void parseOption(const std::string& option, float& result);
         void parseOption(const std::string& option, bool& result);
         void parseOption(const std::string& option, std::string& result);
@@ -89,6 +90,7 @@ namespace vkBasalt
 
         // Parse override value directly from string
         void parseOverride(const std::string& value, int32_t& result);
+        void parseOverride(const std::string& value, uint32_t& result);
         void parseOverride(const std::string& value, float& result);
         void parseOverride(const std::string& value, bool& result);
         void parseOverride(const std::string& value, std::string& result);

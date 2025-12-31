@@ -165,6 +165,16 @@ namespace vkBasalt
         }
     }
 
+    void Config::parseOption(const std::string& option, uint32_t& result)
+    {
+        auto found = options.find(option);
+        if (found != options.end())
+        {
+            try { result = static_cast<uint32_t>(std::stoul(found->second)); }
+            catch (...) { Logger::warn("invalid uint32_t value for: " + option); }
+        }
+    }
+
     void Config::parseOption(const std::string& option, float& result)
     {
         auto found = options.find(option);
@@ -239,6 +249,12 @@ namespace vkBasalt
     {
         try { result = std::stoi(value); }
         catch (...) { Logger::warn("invalid int32_t override value"); }
+    }
+
+    void Config::parseOverride(const std::string& value, uint32_t& result)
+    {
+        try { result = static_cast<uint32_t>(std::stoul(value)); }
+        catch (...) { Logger::warn("invalid uint32_t override value"); }
     }
 
     void Config::parseOverride(const std::string& value, float& result)

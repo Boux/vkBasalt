@@ -22,10 +22,11 @@ overlay_src = [
     'overlay/params/field_editor.cpp',
     'overlay/params/fields/field_bool.cpp',
     'overlay/params/fields/field_float.cpp',
-    'overlay/params/fields/field_float2.cpp',
-    'overlay/params/fields/field_float3.cpp',
-    'overlay/params/fields/field_float4.cpp',
+    'overlay/params/fields/field_floatvec.cpp',
     'overlay/params/fields/field_int.cpp',
+    'overlay/params/fields/field_intvec.cpp',
+    'overlay/params/fields/field_uint.cpp',
+    'overlay/params/fields/field_uintvec.cpp',
 ]
 
 vkBasalt_src = [

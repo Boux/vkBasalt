@@ -74,10 +74,10 @@ if (auto* fp = dynamic_cast<FloatParam*>(param))
     value = fp->value;  // Read directly from registry
 ```
 
-For Float2/Float3/Float4, vector components share the same parameter name but use an index:
+For vector types (float2/3/4, int2/3/4, uint2/3/4), components share the same parameter name but use an index:
 ```cpp
-if (auto* f2p = dynamic_cast<Float2Param*>(param))
-    value = f2p->value[vectorComponentIndex];  // 0 for .x, 1 for .y
+if (auto* fvp = dynamic_cast<FloatVecParam*>(param))
+    value = fvp->value[vectorComponentIndex];  // 0, 1, 2, or 3
 ```
 
 ## Architecture Overview
@@ -135,10 +135,22 @@ class Effect {
 ### Parameter System
 
 **EffectParam** hierarchy (`src/effects/params/effect_param.hpp`):
-- `FloatParam` - Single float value
-- `Float2Param` - Two float values (value[0], value[1])
-- `IntParam` - Integer value
-- `BoolParam` - Boolean value
+
+| Type | Description | Storage |
+|------|-------------|---------|
+| `FloatParam` | Scalar float | `float value` |
+| `FloatVecParam` | float2/3/4 vector | `float value[4]` + `componentCount` |
+| `IntParam` | Scalar signed int | `int value` |
+| `IntVecParam` | int2/3/4 vector | `int value[4]` + `componentCount` |
+| `UintParam` | Scalar unsigned int | `uint32_t value` |
+| `UintVecParam` | uint2/3/4 vector | `uint32_t value[4]` + `componentCount` |
+| `BoolParam` | Boolean | `bool value` |
+
+**Vector types use `componentCount`**: Instead of separate Float2Param/Float3Param/Float4Param classes, a single `FloatVecParam` class uses a `componentCount` field (2, 3, or 4) to track the vector size. Same pattern for IntVecParam and UintVecParam.
+
+**Serialization format**: Vector parameters serialize to array-style keys: `ParamName[0]`, `ParamName[1]`, etc.
+
+**Field editors** (`src/overlay/params/fields/`): Each param type has a corresponding field editor that renders the ImGui controls. Registered via `REGISTER_FIELD_EDITOR(ParamType, EditorClass)` macro.
 
 Parameters are stored in `EffectConfig` within `EffectRegistry`. The UI renders these directly and modifies them in-place.
 

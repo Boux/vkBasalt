@@ -1,24 +1,25 @@
 #include "../field_editor.hpp"
 #include "../../../imgui/imgui.h"
 #include "../../../imgui/imgui_internal.h"
-#include <cmath>
 
 namespace vkBasalt
 {
-    class Float3FieldEditor : public FieldEditor
+    class UintFieldEditor : public FieldEditor
     {
     public:
         bool render(EffectParam& param) override
         {
-            auto& p = static_cast<Float3Param&>(param);
+            auto& p = static_cast<UintParam&>(param);
             bool changed = false;
 
-            if (ImGui::SliderFloat3(p.label.c_str(), p.value, p.minValue[0], p.maxValue[0]))
+            // Use SliderScalar for unsigned int
+            if (ImGui::SliderScalar(p.label.c_str(), ImGuiDataType_U32, &p.value, &p.minValue, &p.maxValue))
             {
                 if (p.step > 0.0f)
                 {
-                    for (int i = 0; i < 3; i++)
-                        p.value[i] = std::round(p.value[i] / p.step) * p.step;
+                    uint32_t step = static_cast<uint32_t>(p.step);
+                    if (step > 0)
+                        p.value = (p.value / step) * step;
                 }
                 changed = true;
             }
@@ -40,6 +41,6 @@ namespace vkBasalt
         }
     };
 
-    REGISTER_FIELD_EDITOR(ParamType::Float3, Float3FieldEditor)
+    REGISTER_FIELD_EDITOR(ParamType::Uint, UintFieldEditor)
 
 } // namespace vkBasalt

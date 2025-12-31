@@ -623,7 +623,18 @@ namespace vkBasalt
                             }
                             break;
                         case reshadefx::type::t_int:
-                            if (auto* ip = dynamic_cast<IntParam*>(param))
+                            // Could be IntParam or IntVecParam (vector component)
+                            if (auto* ivp = dynamic_cast<IntVecParam*>(param))
+                            {
+                                if (vectorComponentIndex < static_cast<int>(ivp->componentCount))
+                                {
+                                    convertedValue = ivp->value[vectorComponentIndex];
+                                    specData.resize(offset + sizeof(int32_t));
+                                    std::memcpy(specData.data() + offset, &convertedValue, sizeof(int32_t));
+                                    specMapEntrys.push_back({specId, offset, sizeof(int32_t)});
+                                }
+                            }
+                            else if (auto* ip = dynamic_cast<IntParam*>(param))
                             {
                                 convertedValue = ip->value;
                                 specData.resize(offset + sizeof(int32_t));
@@ -632,41 +643,40 @@ namespace vkBasalt
                             }
                             break;
                         case reshadefx::type::t_uint:
-                            if (auto* ip = dynamic_cast<IntParam*>(param))
+                            // Could be UintParam or UintVecParam (vector component)
+                            if (auto* uvp = dynamic_cast<UintVecParam*>(param))
                             {
-                                convertedValue = (uint32_t)ip->value;
+                                if (vectorComponentIndex < static_cast<int>(uvp->componentCount))
+                                {
+                                    convertedValue = uvp->value[vectorComponentIndex];
+                                    specData.resize(offset + sizeof(uint32_t));
+                                    std::memcpy(specData.data() + offset, &convertedValue, sizeof(uint32_t));
+                                    specMapEntrys.push_back({specId, offset, sizeof(uint32_t)});
+                                }
+                            }
+                            else if (auto* up = dynamic_cast<UintParam*>(param))
+                            {
+                                convertedValue = up->value;
+                                specData.resize(offset + sizeof(uint32_t));
+                                std::memcpy(specData.data() + offset, &convertedValue, sizeof(uint32_t));
+                                specMapEntrys.push_back({specId, offset, sizeof(uint32_t)});
+                            }
+                            else if (auto* ip = dynamic_cast<IntParam*>(param))
+                            {
+                                // Fallback: some shaders use int for uint
+                                convertedValue = static_cast<uint32_t>(ip->value);
                                 specData.resize(offset + sizeof(uint32_t));
                                 std::memcpy(specData.data() + offset, &convertedValue, sizeof(uint32_t));
                                 specMapEntrys.push_back({specId, offset, sizeof(uint32_t)});
                             }
                             break;
                         case reshadefx::type::t_float:
-                            // Could be FloatParam, Float2Param, Float3Param, or Float4Param (vector component)
-                            if (auto* f4p = dynamic_cast<Float4Param*>(param))
+                            // Could be FloatParam or FloatVecParam (vector component)
+                            if (auto* fvp = dynamic_cast<FloatVecParam*>(param))
                             {
-                                if (vectorComponentIndex < 4)
+                                if (vectorComponentIndex < static_cast<int>(fvp->componentCount))
                                 {
-                                    convertedValue = f4p->value[vectorComponentIndex];
-                                    specData.resize(offset + sizeof(float));
-                                    std::memcpy(specData.data() + offset, &convertedValue, sizeof(float));
-                                    specMapEntrys.push_back({specId, offset, sizeof(float)});
-                                }
-                            }
-                            else if (auto* f3p = dynamic_cast<Float3Param*>(param))
-                            {
-                                if (vectorComponentIndex < 3)
-                                {
-                                    convertedValue = f3p->value[vectorComponentIndex];
-                                    specData.resize(offset + sizeof(float));
-                                    std::memcpy(specData.data() + offset, &convertedValue, sizeof(float));
-                                    specMapEntrys.push_back({specId, offset, sizeof(float)});
-                                }
-                            }
-                            else if (auto* f2p = dynamic_cast<Float2Param*>(param))
-                            {
-                                if (vectorComponentIndex < 2)
-                                {
-                                    convertedValue = f2p->value[vectorComponentIndex];
+                                    convertedValue = fvp->value[vectorComponentIndex];
                                     specData.resize(offset + sizeof(float));
                                     std::memcpy(specData.data() + offset, &convertedValue, sizeof(float));
                                     specMapEntrys.push_back({specId, offset, sizeof(float)});

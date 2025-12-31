@@ -5,16 +5,18 @@
 #include <vector>
 #include <memory>
 #include <utility>
+#include <cstdint>
 
 namespace vkBasalt
 {
     enum class ParamType
     {
         Float,
-        Float2,
-        Float3,
-        Float4,
+        FloatVec,   // float2, float3, float4 - uses componentCount
         Int,
+        IntVec,     // int2, int3, int4 - uses componentCount
+        Uint,       // scalar unsigned int
+        UintVec,    // uint2, uint3, uint4 - uses componentCount
         Bool
     };
 
@@ -38,7 +40,7 @@ namespace vkBasalt
         virtual std::unique_ptr<EffectParam> clone() const = 0;
     };
 
-    // Float parameter
+    // Float parameter (scalar)
     class FloatParam : public EffectParam
     {
     public:
@@ -51,15 +53,9 @@ namespace vkBasalt
         ParamType getType() const override { return ParamType::Float; }
         const char* getTypeName() const override { return "FLOAT"; }
 
-        bool hasChanged() const override
-        {
-            return value != defaultValue;
-        }
+        bool hasChanged() const override { return value != defaultValue; }
 
-        void resetToDefault() override
-        {
-            value = defaultValue;
-        }
+        void resetToDefault() override { value = defaultValue; }
 
         std::vector<std::pair<std::string, std::string>> serialize() const override
         {
@@ -83,128 +79,30 @@ namespace vkBasalt
         }
     };
 
-    // Float2 parameter (vec2)
-    class Float2Param : public EffectParam
+    // Float vector parameter (float2, float3, float4)
+    class FloatVecParam : public EffectParam
     {
     public:
-        float value[2] = {0.0f, 0.0f};
-        float defaultValue[2] = {0.0f, 0.0f};
-        float minValue[2] = {0.0f, 0.0f};
-        float maxValue[2] = {1.0f, 1.0f};
-        float step = 0.0f;
-
-        ParamType getType() const override { return ParamType::Float2; }
-        const char* getTypeName() const override { return "FLOAT2"; }
-
-        bool hasChanged() const override
-        {
-            return value[0] != defaultValue[0] || value[1] != defaultValue[1];
-        }
-
-        void resetToDefault() override
-        {
-            value[0] = defaultValue[0];
-            value[1] = defaultValue[1];
-        }
-
-        std::vector<std::pair<std::string, std::string>> serialize() const override
-        {
-            return {
-                {name + ".x", std::to_string(value[0])},
-                {name + ".y", std::to_string(value[1])}
-            };
-        }
-
-        std::unique_ptr<EffectParam> clone() const override
-        {
-            auto p = std::make_unique<Float2Param>();
-            p->effectName = effectName;
-            p->name = name;
-            p->label = label;
-            p->tooltip = tooltip;
-            p->uiType = uiType;
-            p->value[0] = value[0];
-            p->value[1] = value[1];
-            p->defaultValue[0] = defaultValue[0];
-            p->defaultValue[1] = defaultValue[1];
-            p->minValue[0] = minValue[0];
-            p->minValue[1] = minValue[1];
-            p->maxValue[0] = maxValue[0];
-            p->maxValue[1] = maxValue[1];
-            p->step = step;
-            return p;
-        }
-    };
-
-    // Float3 parameter (vec3)
-    class Float3Param : public EffectParam
-    {
-    public:
-        float value[3] = {0.0f, 0.0f, 0.0f};
-        float defaultValue[3] = {0.0f, 0.0f, 0.0f};
-        float minValue[3] = {0.0f, 0.0f, 0.0f};
-        float maxValue[3] = {1.0f, 1.0f, 1.0f};
-        float step = 0.0f;
-
-        ParamType getType() const override { return ParamType::Float3; }
-        const char* getTypeName() const override { return "FLOAT3"; }
-
-        bool hasChanged() const override
-        {
-            return value[0] != defaultValue[0] || value[1] != defaultValue[1] || value[2] != defaultValue[2];
-        }
-
-        void resetToDefault() override
-        {
-            for (int i = 0; i < 3; i++)
-                value[i] = defaultValue[i];
-        }
-
-        std::vector<std::pair<std::string, std::string>> serialize() const override
-        {
-            return {
-                {name + ".x", std::to_string(value[0])},
-                {name + ".y", std::to_string(value[1])},
-                {name + ".z", std::to_string(value[2])}
-            };
-        }
-
-        std::unique_ptr<EffectParam> clone() const override
-        {
-            auto p = std::make_unique<Float3Param>();
-            p->effectName = effectName;
-            p->name = name;
-            p->label = label;
-            p->tooltip = tooltip;
-            p->uiType = uiType;
-            for (int i = 0; i < 3; i++)
-            {
-                p->value[i] = value[i];
-                p->defaultValue[i] = defaultValue[i];
-                p->minValue[i] = minValue[i];
-                p->maxValue[i] = maxValue[i];
-            }
-            p->step = step;
-            return p;
-        }
-    };
-
-    // Float4 parameter (vec4)
-    class Float4Param : public EffectParam
-    {
-    public:
+        uint32_t componentCount = 2;  // 2, 3, or 4
         float value[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         float defaultValue[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         float minValue[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         float maxValue[4] = {1.0f, 1.0f, 1.0f, 1.0f};
         float step = 0.0f;
 
-        ParamType getType() const override { return ParamType::Float4; }
-        const char* getTypeName() const override { return "FLOAT4"; }
+        ParamType getType() const override { return ParamType::FloatVec; }
+
+        const char* getTypeName() const override
+        {
+            static const char* names[] = {"FLOAT2", "FLOAT3", "FLOAT4"};
+            if (componentCount >= 2 && componentCount <= 4)
+                return names[componentCount - 2];
+            return "FLOATVEC";
+        }
 
         bool hasChanged() const override
         {
-            for (int i = 0; i < 4; i++)
+            for (uint32_t i = 0; i < componentCount; i++)
                 if (value[i] != defaultValue[i])
                     return true;
             return false;
@@ -212,29 +110,28 @@ namespace vkBasalt
 
         void resetToDefault() override
         {
-            for (int i = 0; i < 4; i++)
+            for (uint32_t i = 0; i < componentCount; i++)
                 value[i] = defaultValue[i];
         }
 
         std::vector<std::pair<std::string, std::string>> serialize() const override
         {
-            return {
-                {name + ".x", std::to_string(value[0])},
-                {name + ".y", std::to_string(value[1])},
-                {name + ".z", std::to_string(value[2])},
-                {name + ".w", std::to_string(value[3])}
-            };
+            std::vector<std::pair<std::string, std::string>> result;
+            for (uint32_t i = 0; i < componentCount; i++)
+                result.push_back({name + "[" + std::to_string(i) + "]", std::to_string(value[i])});
+            return result;
         }
 
         std::unique_ptr<EffectParam> clone() const override
         {
-            auto p = std::make_unique<Float4Param>();
+            auto p = std::make_unique<FloatVecParam>();
             p->effectName = effectName;
             p->name = name;
             p->label = label;
             p->tooltip = tooltip;
             p->uiType = uiType;
-            for (int i = 0; i < 4; i++)
+            p->componentCount = componentCount;
+            for (uint32_t i = 0; i < 4; i++)
             {
                 p->value[i] = value[i];
                 p->defaultValue[i] = defaultValue[i];
@@ -246,7 +143,7 @@ namespace vkBasalt
         }
     };
 
-    // Int parameter
+    // Int parameter (scalar)
     class IntParam : public EffectParam
     {
     public:
@@ -260,15 +157,9 @@ namespace vkBasalt
         ParamType getType() const override { return ParamType::Int; }
         const char* getTypeName() const override { return "INT"; }
 
-        bool hasChanged() const override
-        {
-            return value != defaultValue;
-        }
+        bool hasChanged() const override { return value != defaultValue; }
 
-        void resetToDefault() override
-        {
-            value = defaultValue;
-        }
+        void resetToDefault() override { value = defaultValue; }
 
         std::vector<std::pair<std::string, std::string>> serialize() const override
         {
@@ -293,6 +184,173 @@ namespace vkBasalt
         }
     };
 
+    // Int vector parameter (int2, int3, int4)
+    class IntVecParam : public EffectParam
+    {
+    public:
+        uint32_t componentCount = 2;  // 2, 3, or 4
+        int value[4] = {0, 0, 0, 0};
+        int defaultValue[4] = {0, 0, 0, 0};
+        int minValue[4] = {0, 0, 0, 0};
+        int maxValue[4] = {100, 100, 100, 100};
+        float step = 0.0f;
+
+        ParamType getType() const override { return ParamType::IntVec; }
+
+        const char* getTypeName() const override
+        {
+            static const char* names[] = {"INT2", "INT3", "INT4"};
+            if (componentCount >= 2 && componentCount <= 4)
+                return names[componentCount - 2];
+            return "INTVEC";
+        }
+
+        bool hasChanged() const override
+        {
+            for (uint32_t i = 0; i < componentCount; i++)
+                if (value[i] != defaultValue[i])
+                    return true;
+            return false;
+        }
+
+        void resetToDefault() override
+        {
+            for (uint32_t i = 0; i < componentCount; i++)
+                value[i] = defaultValue[i];
+        }
+
+        std::vector<std::pair<std::string, std::string>> serialize() const override
+        {
+            std::vector<std::pair<std::string, std::string>> result;
+            for (uint32_t i = 0; i < componentCount; i++)
+                result.push_back({name + "[" + std::to_string(i) + "]", std::to_string(value[i])});
+            return result;
+        }
+
+        std::unique_ptr<EffectParam> clone() const override
+        {
+            auto p = std::make_unique<IntVecParam>();
+            p->effectName = effectName;
+            p->name = name;
+            p->label = label;
+            p->tooltip = tooltip;
+            p->uiType = uiType;
+            p->componentCount = componentCount;
+            for (uint32_t i = 0; i < 4; i++)
+            {
+                p->value[i] = value[i];
+                p->defaultValue[i] = defaultValue[i];
+                p->minValue[i] = minValue[i];
+                p->maxValue[i] = maxValue[i];
+            }
+            p->step = step;
+            return p;
+        }
+    };
+
+    // Uint parameter (scalar unsigned int)
+    class UintParam : public EffectParam
+    {
+    public:
+        uint32_t value = 0;
+        uint32_t defaultValue = 0;
+        uint32_t minValue = 0;
+        uint32_t maxValue = 100;
+        float step = 0.0f;
+
+        ParamType getType() const override { return ParamType::Uint; }
+        const char* getTypeName() const override { return "UINT"; }
+
+        bool hasChanged() const override { return value != defaultValue; }
+
+        void resetToDefault() override { value = defaultValue; }
+
+        std::vector<std::pair<std::string, std::string>> serialize() const override
+        {
+            return {{"", std::to_string(value)}};
+        }
+
+        std::unique_ptr<EffectParam> clone() const override
+        {
+            auto p = std::make_unique<UintParam>();
+            p->effectName = effectName;
+            p->name = name;
+            p->label = label;
+            p->tooltip = tooltip;
+            p->uiType = uiType;
+            p->value = value;
+            p->defaultValue = defaultValue;
+            p->minValue = minValue;
+            p->maxValue = maxValue;
+            p->step = step;
+            return p;
+        }
+    };
+
+    // Uint vector parameter (uint2, uint3, uint4)
+    class UintVecParam : public EffectParam
+    {
+    public:
+        uint32_t componentCount = 2;  // 2, 3, or 4
+        uint32_t value[4] = {0, 0, 0, 0};
+        uint32_t defaultValue[4] = {0, 0, 0, 0};
+        uint32_t minValue[4] = {0, 0, 0, 0};
+        uint32_t maxValue[4] = {100, 100, 100, 100};
+        float step = 0.0f;
+
+        ParamType getType() const override { return ParamType::UintVec; }
+
+        const char* getTypeName() const override
+        {
+            static const char* names[] = {"UINT2", "UINT3", "UINT4"};
+            if (componentCount >= 2 && componentCount <= 4)
+                return names[componentCount - 2];
+            return "UINTVEC";
+        }
+
+        bool hasChanged() const override
+        {
+            for (uint32_t i = 0; i < componentCount; i++)
+                if (value[i] != defaultValue[i])
+                    return true;
+            return false;
+        }
+
+        void resetToDefault() override
+        {
+            for (uint32_t i = 0; i < componentCount; i++)
+                value[i] = defaultValue[i];
+        }
+
+        std::vector<std::pair<std::string, std::string>> serialize() const override
+        {
+            std::vector<std::pair<std::string, std::string>> result;
+            for (uint32_t i = 0; i < componentCount; i++)
+                result.push_back({name + "[" + std::to_string(i) + "]", std::to_string(value[i])});
+            return result;
+        }
+
+        std::unique_ptr<EffectParam> clone() const override
+        {
+            auto p = std::make_unique<UintVecParam>();
+            p->effectName = effectName;
+            p->name = name;
+            p->label = label;
+            p->tooltip = tooltip;
+            p->uiType = uiType;
+            p->componentCount = componentCount;
+            for (uint32_t i = 0; i < 4; i++)
+            {
+                p->value[i] = value[i];
+                p->defaultValue[i] = defaultValue[i];
+                p->minValue[i] = minValue[i];
+                p->maxValue[i] = maxValue[i];
+            }
+            p->step = step;
+            return p;
+        }
+    };
+
     // Bool parameter
     class BoolParam : public EffectParam
     {
@@ -303,15 +361,9 @@ namespace vkBasalt
         ParamType getType() const override { return ParamType::Bool; }
         const char* getTypeName() const override { return "BOOL"; }
 
-        bool hasChanged() const override
-        {
-            return value != defaultValue;
-        }
+        bool hasChanged() const override { return value != defaultValue; }
 
-        void resetToDefault() override
-        {
-            value = defaultValue;
-        }
+        void resetToDefault() override { value = defaultValue; }
 
         std::vector<std::pair<std::string, std::string>> serialize() const override
         {
