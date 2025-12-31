@@ -15,8 +15,7 @@ Feature showcase: https://www.youtube.com/watch?v=_KJTToAynr0
 
 ## Bugs and Jank
 
-- Default config is sometimes not loaded properly and requires Apply to be clicked manually at least once (will fix soon).
-- Slider values for some uniform types do not yet exist and will not properly reflect values needed by the shader (such as float3 values)
+- Mouse input can be weird in some games (especially first person shooters or games that hide your cursor). It will sometimes lock the cursor to the middle of the screen and you have to pause the game or open a menu to be able to use the mouse. Also be careful not to accidentally click things behind the overlay! I am not sure how to fix this issue, there is a really bad workaround that you can enable in the settings where it just force-grabs the cursor with X11 calls, but it's janky as hell. If anybody got any ideas I'm listening.
 
 ## Features
 
