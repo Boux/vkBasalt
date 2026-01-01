@@ -37,6 +37,16 @@ namespace vkBasalt
         std::shared_ptr<Effect>              defaultTransfer;
         VkDeviceMemory                       fakeImageMemory;
 
+        // Injection support: temp images for mid-frame effect application
+        std::vector<VkImage>                 injectionTempImages;
+        std::vector<VkImageView>             injectionTempImageViews;
+        VkDeviceMemory                       injectionTempMemory = VK_NULL_HANDLE;
+        VkSwapchainKHR                       swapchainHandle = VK_NULL_HANDLE;
+
+        // Injection effects: apply effects and copy back to fake images
+        std::vector<std::shared_ptr<Effect>> injectionEffects;
+        std::shared_ptr<Effect>              injectionCopyBack;  // Copy temp → fake
+
         void destroy();
         void reloadEffects(Config* pConfig);
     };

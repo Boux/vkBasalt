@@ -152,6 +152,7 @@ namespace vkBasalt
         int listeningForKey = 0;  // 0=none, 1=toggle, 2=reload, 3=overlay
         bool settingsShowDebugWindow = false;  // Show debug window
         bool settingsRenderPassInjection = false;   // Render pass injection enabled
+        int settingsInjectionPassIndex = 0;          // Which render pass to inject after
         int debugWindowTab = 0;  // 0=Registry, 1=Log
         bool debugLogFilters[5] = {true, true, true, true, true};  // Trace, Debug, Info, Warn, Error
         char debugLogSearch[128] = "";  // Search filter for log tab

@@ -96,6 +96,7 @@ namespace vkBasalt
             settingsAutoApplyDelay = currentSettings.autoApplyDelay;
             settingsShowDebugWindow = currentSettings.showDebugWindow;
             settingsRenderPassInjection = currentSettings.renderPassInjection;
+            settingsInjectionPassIndex = currentSettings.injectionPassIndex;
             Logger::setHistoryEnabled(settingsShowDebugWindow);
             settingsInitialized = true;
         }

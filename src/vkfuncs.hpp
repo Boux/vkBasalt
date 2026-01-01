@@ -72,6 +72,7 @@
     FORVKFUNC(GetDeviceQueue2) \
     FORVKFUNC(GetImageMemoryRequirements) \
     FORVKFUNC(GetSwapchainImagesKHR) \
+    FORVKFUNC(AcquireNextImageKHR) \
     FORVKFUNC(MapMemory) \
     FORVKFUNC(QueuePresentKHR) \
     FORVKFUNC(QueueSubmit) \

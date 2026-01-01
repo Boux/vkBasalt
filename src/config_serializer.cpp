@@ -271,6 +271,8 @@ namespace vkBasalt
                 settings.showDebugWindow = (value == "true" || value == "1");
             else if (key == "renderPassInjection")
                 settings.renderPassInjection = (value == "true" || value == "1");
+            else if (key == "injectionPassIndex")
+                settings.injectionPassIndex = std::stoi(value);
         }
 
         return settings;
@@ -315,6 +317,7 @@ namespace vkBasalt
         file << "\n# Advanced\n";
         file << "showDebugWindow = " << (settings.showDebugWindow ? "true" : "false") << "\n";
         file << "renderPassInjection = " << (settings.renderPassInjection ? "true" : "false") << "\n";
+        file << "injectionPassIndex = " << settings.injectionPassIndex << "\n";
 
         file.close();
         Logger::info("Saved settings to: " + configPath);
