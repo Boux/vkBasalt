@@ -1,5 +1,6 @@
 #include "imgui_overlay.hpp"
 #include "effects/effect_registry.hpp"
+#include "settings_manager.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -62,10 +63,11 @@ namespace vkBasalt
         }
 
         // Add Effects mode - two column layout
+        size_t maxEffectsLimit = static_cast<size_t>(settingsManager.getMaxEffects());
         if (insertPosition >= 0)
-            ImGui::Text("Insert Effects at position %d (max %zu)", insertPosition, maxEffects);
+            ImGui::Text("Insert Effects at position %d (max %zu)", insertPosition, maxEffectsLimit);
         else
-            ImGui::Text("Add Effects (max %zu)", maxEffects);
+            ImGui::Text("Add Effects (max %zu)", maxEffectsLimit);
         ImGui::Separator();
 
         size_t currentCount = selectedEffects.size();
@@ -100,7 +102,7 @@ namespace vkBasalt
 
         // Helper to render add button for an effect
         auto renderAddButton = [&](const std::string& effectType, const std::string& tooltip = "") {
-            bool atLimit = totalCount >= maxEffects;
+            bool atLimit = totalCount >= maxEffectsLimit;
             if (atLimit)
                 ImGui::BeginDisabled();
 
