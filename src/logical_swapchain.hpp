@@ -28,6 +28,8 @@ namespace vkBasalt
         std::vector<VkImage>                 images;
         std::vector<VkImageView>             imageViews;  // for overlay rendering
         std::vector<VkImage>                 fakeImages;
+        std::vector<VkImage>                 originalImages;  // Pre-effects images for depth masking
+        VkDeviceMemory                       originalImageMemory = VK_NULL_HANDLE;
         size_t                               maxEffectSlots = 0;  // Max number of effects supported
         std::vector<VkCommandBuffer>         commandBuffersEffect;
         std::vector<VkCommandBuffer>         commandBuffersNoEffect;

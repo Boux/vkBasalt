@@ -22,6 +22,16 @@ namespace vkBasalt
                 pLogicalDevice->vkd.DestroyImage(pLogicalDevice->device, fakeImages[i], nullptr);
             }
 
+            // Clean up original images (for depth masking)
+            if (originalImageMemory != VK_NULL_HANDLE)
+            {
+                pLogicalDevice->vkd.FreeMemory(pLogicalDevice->device, originalImageMemory, nullptr);
+                for (auto& img : originalImages)
+                    pLogicalDevice->vkd.DestroyImage(pLogicalDevice->device, img, nullptr);
+                originalImages.clear();
+                originalImageMemory = VK_NULL_HANDLE;
+            }
+
             for (unsigned int i = 0; i < imageCount; i++)
             {
                 pLogicalDevice->vkd.DestroySemaphore(pLogicalDevice->device, semaphores[i], nullptr);
