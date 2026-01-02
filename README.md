@@ -52,6 +52,7 @@ Try downloading shaders from these sources
 - Native wayland support (for `PROTON_ENABLE_WAYLAND=1` and just native linux games under wayland)
 - Per-game profiles instead of just have one global default config
 - Fixing input grabbing to prevent click-throughs when the overlay is visible
+- Reshade preset importation
 
 ## Installation
 
