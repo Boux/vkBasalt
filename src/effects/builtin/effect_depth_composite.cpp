@@ -17,6 +17,9 @@
 
 namespace vkBasalt
 {
+    // Global depth debug info
+    DepthDebugInfo depthDebugInfo;
+
     DepthCompositeEffect::DepthCompositeEffect(LogicalDevice*       pLogicalDevice,
                                                VkFormat             format,
                                                VkExtent2D           imageExtent,
@@ -120,7 +123,11 @@ namespace vkBasalt
 
         depthImageView = newDepthImageView;
         descriptorSetsNeedUpdate = true;
-        Logger::debug("DepthCompositeEffect: depth image view updated");
+
+        // Update debug info
+        depthDebugInfo.hasDepthImage = (newDepthImageView != VK_NULL_HANDLE);
+        Logger::debug("DepthCompositeEffect: depth image view updated, hasDepth=" +
+                      std::string(depthDebugInfo.hasDepthImage ? "true" : "false"));
     }
 
     void DepthCompositeEffect::applyEffect(uint32_t imageIndex, VkCommandBuffer commandBuffer)

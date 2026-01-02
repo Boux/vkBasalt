@@ -1,5 +1,6 @@
 #include "imgui_overlay.hpp"
 #include "effects/effect_registry.hpp"
+#include "effects/builtin/effect_depth_composite.hpp"
 #include "settings_manager.hpp"
 #include "logger.hpp"
 
@@ -139,15 +140,29 @@ namespace vkBasalt
                 {
                     debugWindowTab = 2;
 
-                    ImGui::Text("Depth Masking Status");
+                    ImGui::Text("Depth Buffer Status");
                     ImGui::Separator();
 
-                    // Show current settings
-                    bool depthEnabled = settingsManager.getDepthCapture();
+                    // Show if depth buffer was captured
+                    if (depthDebugInfo.hasDepthImage)
+                    {
+                        ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "Depth buffer DETECTED");
+                        ImGui::TextDisabled("Game is providing a depth buffer to vkBasalt");
+                    }
+                    else
+                    {
+                        ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "No depth buffer detected");
+                        ImGui::TextDisabled("Game may not use a compatible depth format,");
+                        ImGui::TextDisabled("or depth capture failed to intercept it.");
+                    }
+
+                    ImGui::Spacing();
+                    ImGui::Text("Current Settings");
+                    ImGui::Separator();
+
                     float threshold = settingsManager.getDepthMaskThreshold();
                     bool reversed = settingsManager.getDepthMaskReversed();
 
-                    ImGui::BulletText("Depth Masking: %s", depthEnabled ? "Enabled" : "Disabled");
                     ImGui::BulletText("Threshold: %.4f", threshold);
                     ImGui::BulletText("Reversed Depth (DXVK): %s", reversed ? "Yes" : "No");
 
@@ -177,6 +192,10 @@ namespace vkBasalt
                     ImGui::TextDisabled("When threshold < 0.5:");
                     ImGui::TextDisabled("  Black = near objects (close to camera)");
                     ImGui::TextDisabled("  White = far objects (background/UI)");
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("If screen is all one color, depth buffer may be:");
+                    ImGui::TextDisabled("  - All same value (no depth variation)");
+                    ImGui::TextDisabled("  - Not captured correctly");
 
                     ImGui::Spacing();
                     ImGui::Text("Troubleshooting");
@@ -188,7 +207,8 @@ namespace vkBasalt
                     ImGui::Spacing();
                     ImGui::TextWrapped("If effects never apply to 3D world:");
                     ImGui::BulletText("Increase threshold closer to 1.0");
-                    ImGui::BulletText("Game may not expose depth buffer to vkBasalt");
+                    ImGui::BulletText("Check if depth buffer is detected above");
+                    ImGui::BulletText("Try debug visualization to see actual depth");
 
                     ImGui::EndTabItem();
                 }

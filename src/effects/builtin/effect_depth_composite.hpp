@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include <atomic>
 
 #include "vulkan_include.hpp"
 #include "../effect.hpp"
@@ -11,6 +12,20 @@
 
 namespace vkBasalt
 {
+    // Debug info for depth buffer sampling
+    struct DepthDebugInfo
+    {
+        bool hasDepthImage = false;      // Is a depth image available?
+        float centerDepth = 0.0f;        // Depth at screen center
+        float minDepth = 1.0f;           // Minimum depth in sample
+        float maxDepth = 0.0f;           // Maximum depth in sample
+        uint32_t sampleCount = 0;        // Number of samples taken
+        bool allSameValue = true;        // Are all samples the same?
+    };
+
+    // Global depth debug info (updated by DepthCompositeEffect)
+    extern DepthDebugInfo depthDebugInfo;
+
     // Composites original (pre-effects) and effected images based on depth.
     // Pixels at depth >= threshold get the original image (UI),
     // pixels at depth < threshold get the effected image (3D world).

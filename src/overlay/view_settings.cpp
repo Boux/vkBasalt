@@ -2,6 +2,7 @@
 #include "settings_manager.hpp"
 #include "logger.hpp"
 
+#include <algorithm>
 #include <cstring>
 
 #include "imgui/imgui.h"
@@ -182,10 +183,20 @@ namespace vkBasalt
             ImGui::Text("Depth Threshold:");
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Pixels with depth >= threshold are considered UI.\nHigher = more UI preserved, lower = more effects applied.\n\nDebug: Set below 0.5 to visualize depth buffer.");
-            ImGui::SetNextItemWidth(150);
             float threshold = settingsManager.getDepthMaskThreshold();
-            if (ImGui::SliderFloat("##depthThreshold", &threshold, 0.0f, 1.0f, "%.4f"))
+            bool thresholdChanged = false;
+            // Slider for quick adjustment
+            ImGui::SetNextItemWidth(120);
+            if (ImGui::SliderFloat("##depthThresholdSlider", &threshold, 0.0f, 1.0f, "%.4f"))
+                thresholdChanged = true;
+            ImGui::SameLine();
+            // Input field for precise values
+            ImGui::SetNextItemWidth(70);
+            if (ImGui::InputFloat("##depthThresholdInput", &threshold, 0.0f, 0.0f, "%.4f"))
+                thresholdChanged = true;
+            if (thresholdChanged)
             {
+                threshold = std::clamp(threshold, 0.0f, 1.0f);
                 settingsManager.setDepthMaskThreshold(threshold);
                 paramsDirty = true;
                 lastChangeTime = std::chrono::steady_clock::now();
