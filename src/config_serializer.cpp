@@ -112,12 +112,12 @@ namespace vkBasalt
                 file << effectName << " = " << pathIt->second << "\n";
             for (const auto* param : effectParams)
                 file << param->effectName << "." << param->paramName << " = " << param->value << "\n";
-            // Write preprocessor definitions for this effect (format: effectName#MACRO = value)
+            // Write preprocessor definitions for this effect (format: effectName@MACRO = value)
             auto defsIt = defsByEffect.find(effectName);
             if (defsIt != defsByEffect.end())
             {
                 for (const auto* def : defsIt->second)
-                    file << def->effectName << "#" << def->name << " = " << def->value << "\n";
+                    file << def->effectName << "@" << def->name << " = " << def->value << "\n";
             }
             file << "\n";
         }
@@ -132,7 +132,7 @@ namespace vkBasalt
             if (pathIt != effectPaths.end() && !pathIt->second.empty())
                 file << effectName << " = " << pathIt->second << "\n";
             for (const auto* def : effectDefs)
-                file << def->effectName << "#" << def->name << " = " << def->value << "\n";
+                file << def->effectName << "@" << def->name << " = " << def->value << "\n";
             file << "\n";
         }
 

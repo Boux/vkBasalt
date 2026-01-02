@@ -200,10 +200,10 @@ namespace vkBasalt
             config.preprocessorDefs = extractPreprocessorDefinitions(name, path);
 
             // Override default values with any saved values from config
-            // Config format: effectName#MACRO = value
+            // Config format: effectName@MACRO = value
             for (auto& def : config.preprocessorDefs)
             {
-                std::string configKey = name + "#" + def.name;
+                std::string configKey = name + "@" + def.name;
                 std::string savedValue = pConfig->getOption<std::string>(configKey, "");
                 if (!savedValue.empty())
                 {
