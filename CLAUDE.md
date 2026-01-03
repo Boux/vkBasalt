@@ -29,7 +29,7 @@ ninja -C builddir.32
 
 Run any Vulkan game/application with:
 ```bash
-ENABLE_VKBASALT_OVERLAY=1 VKBASALT_LOG_LEVEL=debug ./game
+ENABLE_VKBASALT=1 VKBASALT_LOG_LEVEL=debug ./game
 ```
 
 Use `VKBASALT_CONFIG_FILE=/path/to/config.conf` to test specific configurations.
@@ -224,13 +224,13 @@ X11-based keyboard/mouse input (`keyboard_input_x11.cpp`, `mouse_input.cpp`) com
 
 ## Environment Variables
 
-- `ENABLE_VKBASALT_OVERLAY=1` - Enable the layer (different from original vkBasalt's `ENABLE_VKBASALT`)
-- `DISABLE_VKBASALT_OVERLAY=1` - Force disable
+- `ENABLE_VKBASALT=1` - Enable the layer
+- `DISABLE_VKBASALT=1` - Force disable
 - `VKBASALT_LOG_LEVEL=debug` - Log levels: trace, debug, info, warn, error, none
 - `VKBASALT_LOG_FILE=/path/to/log` - Output to file instead of stderr
 - `VKBASALT_CONFIG_FILE=/path/to/conf` - Override config location
 
-**Note:** This fork uses different env vars and layer names to coexist with the original vkBasalt:
+**Note:** This fork uses the same `ENABLE_VKBASALT` env var as the original because [gamescope filters known layer env vars](https://github.com/Boux/vkBasalt_overlay/issues/5#issuecomment-3706694598). The library/layer names are different to avoid file conflicts:
 - Library: `libvkbasalt-overlay.so` (vs `libvkbasalt.so`)
 - Layer: `VK_LAYER_VKBASALT_OVERLAY_post_processing` (vs `VK_LAYER_VKBASALT_post_processing`)
 - JSON: `vkBasalt-overlay.json` (vs `vkBasalt.json`)
