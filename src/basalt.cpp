@@ -66,21 +66,6 @@ namespace vkBasalt
     std::unordered_map<void*, std::shared_ptr<LogicalDevice>>             deviceMap;
     std::unordered_map<VkSwapchainKHR, std::shared_ptr<LogicalSwapchain>> swapchainMap;
 
-    // Check if we're running inside gamescope - if so, layer is completely disabled
-    // Gamescope sets GAMESCOPE_WAYLAND_DISPLAY for nested apps; gamescope itself won't have it
-    bool isInsideGamescope()
-    {
-        static int cached = -1;
-        if (cached == -1)
-        {
-            const char* gamescopeDisplay = std::getenv("GAMESCOPE_WAYLAND_DISPLAY");
-            cached = (gamescopeDisplay != nullptr) ? 1 : 0;
-            if (cached)
-                Logger::info("Inside gamescope - layer disabled for nested app");
-        }
-        return cached == 1;
-    }
-
     std::mutex globalLock;
 #ifdef _GCC_
     using scoped_lock __attribute__((unused)) = std::lock_guard<std::mutex>;
@@ -870,10 +855,6 @@ namespace vkBasalt
 
         LogicalDevice* pLogicalDevice = deviceMap[GetKey(device)].get();
 
-        // Pass through if inside gamescope
-        if (isInsideGamescope())
-            return pLogicalDevice->vkd.CreateSwapchainKHR(device, pCreateInfo, pAllocator, pSwapchain);
-
         VkSwapchainCreateInfoKHR modifiedCreateInfo = *pCreateInfo;
 
         VkFormat format = modifiedCreateInfo.imageFormat;
@@ -926,10 +907,6 @@ namespace vkBasalt
         Logger::trace("vkGetSwapchainImagesKHR " + std::to_string(*pCount));
 
         LogicalDevice* pLogicalDevice = deviceMap[GetKey(device)].get();
-
-        // Pass through if inside gamescope
-        if (isInsideGamescope())
-            return pLogicalDevice->vkd.GetSwapchainImagesKHR(device, swapchain, pCount, pSwapchainImages);
 
         if (pSwapchainImages == nullptr)
         {
@@ -1079,13 +1056,6 @@ namespace vkBasalt
     VKAPI_ATTR VkResult VKAPI_CALL vkBasalt_QueuePresentKHR(VkQueue queue, const VkPresentInfoKHR* pPresentInfo)
     {
         scoped_lock l(globalLock);
-
-        // Pass through if inside gamescope
-        if (isInsideGamescope())
-        {
-            LogicalDevice* pDevice = deviceMap[GetKey(queue)].get();
-            return pDevice->vkd.QueuePresentKHR(queue, pPresentInfo);
-        }
 
         // Keybindings - read from settingsManager (can be updated when settings are saved)
         static uint32_t keySymbol = convertToKeySym(settingsManager.getToggleKey());
@@ -1275,20 +1245,12 @@ namespace vkBasalt
             return;
 
         scoped_lock l(globalLock);
-
-        LogicalDevice* pLogicalDevice = deviceMap[GetKey(device)].get();
-
-        // Pass through if inside gamescope
-        if (isInsideGamescope())
-        {
-            pLogicalDevice->vkd.DestroySwapchainKHR(device, swapchain, pAllocator);
-            return;
-        }
-
         // we need to delete the infos of the oldswapchain
+
         Logger::trace("vkDestroySwapchainKHR " + convertToString(swapchain));
         swapchainMap[swapchain]->destroy();
         swapchainMap.erase(swapchain);
+        LogicalDevice* pLogicalDevice = deviceMap[GetKey(device)].get();
 
         pLogicalDevice->vkd.DestroySwapchainKHR(device, swapchain, pAllocator);
     }
