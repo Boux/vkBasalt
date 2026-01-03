@@ -91,11 +91,13 @@ ENABLE_VKBASALT=1 %command%
 3. Add `ENABLE_VKBASALT` = `1`
 
 ### Why can't this fork coexist with original vkBasalt?
-This fork **cannot** be installed alongside the original vkBasalt because both must use the same `ENABLE_VKBASALT` environment variable. Gamescope and other Vulkan compositors [filter known layer environment variables](https://github.com/Boux/vkBasalt_overlay/issues/5#issuecomment-3706694598) to prevent layers from loading twice (on both the compositor and nested apps). Using a different env var name would break this filtering, causing the overlay to render twice when using gamescope.
+This fork **cannot** be installed alongside the original vkBasalt because both must use the same `ENABLE_VKBASALT` environment variable. Gamescope and other Vulkan compositors [filter known layer environment variables](https://github.com/Boux/vkBasalt_overlay/issues/5#issuecomment-3706694598) to prevent layers from loading twice (on both the compositor and nested apps). Using a different env var name would break this filtering, causing the overlay and all active effects to render twice when using gamescope.
 
 The library and layer names are still different to avoid file conflicts:
 - Library: `libvkbasalt-overlay.so` (vs `libvkbasalt.so`)
 - Layer JSON: `vkBasalt-overlay.json` (vs `vkBasalt.json`)
+
+In theory, you could still change the env var to anything you want in `/usr/share/vulkan/implicit_layer.d/vkBasalt-overlay.json`, but only do that if you are never gonna use gamescope.
 
 ## Configuration
 
